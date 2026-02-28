@@ -3,27 +3,28 @@
 # configure-claude.sh - Claude Code mclaude variant configuration
 # ================================================================
 # This script configures the mclaude variant created by install-base.sh.
-# It sets up VoltAgent subagents, MCP servers (GitHub, Google Workspace,
-# Twitter, Jira, Serena, Playwright, Memory, Diagram Bridge, Postgres),
+# It sets up VoltAgent subagents, base MCP servers (no credentials needed),
 # helper scripts, and platform settings (git, credentials, WSL/SteamOS).
+#
+# MCP servers that need credentials (GitHub, Twitter, Google Workspace, Jira,
+# Postgres) are NOT configured here. They are set up conversationally during
+# your first mclaude session via the first-run refinement protocol.
 #
 # PREREQUISITE: Run install-base.sh first to install Node.js, cc-mirror,
 # and create the mclaude variant.
 #
 # Usage:
-#   bash configure-claude.sh [--dry-run] [--verbose] [--no-color] [--reconfigure-mcp]
+#   bash configure-claude.sh [--dry-run] [--verbose] [--no-color]
 #
 # Options:
 #   --dry-run          Show what would be done without making changes
 #   --verbose          Show detailed progress information
 #   --no-color         Disable colored output
-#   --reconfigure-mcp  Force re-prompting for MCP credentials even if configured
 #   --help             Show this help message
 #
 # What this script does:
 #   Step 1: Deploy VoltAgent subagents configuration (settings.json)
-#   Step 2: Configure MCP servers (GitHub, Jira, Serena, Playwright, Memory,
-#           Diagram Bridge, Postgres) with credentials
+#   Step 2: Deploy base MCP servers (Serena, Playwright, Memory, Diagram Bridge)
 #   Step 3: Patch mclaude launcher with MCP enablement + update-checker
 #   Step 4: Deploy helper scripts (update-checker)
 #   Step 5: Configure platform settings (git, credentials, bashrc, WSL/SteamOS specifics)
@@ -50,7 +51,6 @@ CONFIG_DIR="${HOME}/.cc-mirror/${CC_MIRROR_VARIANT}/config"
 SCRIPTS_DIR="${HOME}/.cc-mirror/${CC_MIRROR_VARIANT}/scripts"
 LAUNCHER="${HOME}/.local/bin/${CC_MIRROR_VARIANT}"
 
-RECONFIGURE_MCP=false
 TOTAL_STEPS=5
 
 # Step tracking for summary
@@ -77,57 +77,26 @@ OPTIONS:
   --dry-run          Show what would be done without making changes
   --verbose          Show detailed progress information
   --no-color         Disable colored output
-  --reconfigure-mcp  Force re-prompting for MCP credentials even if configured
   --help             Show this help message
 
 WHAT THIS SCRIPT DOES:
   1. Deploy VoltAgent subagents configuration (settings.json)
-  2. Configure MCP servers (GitHub, Google Workspace, Twitter, Jira, Serena,
-     Playwright, Memory, Diagram Bridge, Postgres)
+  2. Deploy base MCP servers (no credentials needed)
   3. Patch mclaude launcher with MCP enablement + update-checker
   4. Deploy helper scripts (update-checker)
   5. Configure platform settings (git, credentials, bashrc, WSL/SteamOS specifics)
 
+  MCP servers that need credentials (GitHub, Twitter, Google Workspace,
+  Jira, Postgres) are configured conversationally during your first
+  mclaude session.
+
 IDEMPOTENCY:
   This script can be run multiple times safely. It will:
   - Skip unchanged files (checksum comparison)
-  - Only prompt for missing MCP credentials
   - Backup files before overwriting
   - Detect and skip already-applied patches
 
 EOF
-}
-
-# Prompt for user input (secure for secrets, visible for non-secrets)
-prompt_credential() {
-    local prompt_text="$1"
-    local var_name="$2"
-    local is_secret="${3:-true}"
-
-    echo -e "\n${COLOR_BLUE}${prompt_text}${COLOR_RESET}"
-    if [[ "${is_secret}" == "true" ]]; then
-        read -r -s -p "> " input
-        echo
-    else
-        read -r -p "> " input
-    fi
-
-    # Direct assignment instead of eval for security
-    case "${var_name}" in
-        github_token) github_token="${input}" ;;
-        google_client_id) google_client_id="${input}" ;;
-        google_client_secret) google_client_secret="${input}" ;;
-        google_email) google_email="${input}" ;;
-        twitter_api_key) twitter_api_key="${input}" ;;
-        twitter_api_secret) twitter_api_secret="${input}" ;;
-        twitter_access_token) twitter_access_token="${input}" ;;
-        twitter_access_secret) twitter_access_secret="${input}" ;;
-        jira_url) jira_url="${input}" ;;
-        jira_email) jira_email="${input}" ;;
-        jira_api_token) jira_api_token="${input}" ;;
-        postgres_url) postgres_url="${input}" ;;
-        *) log_error "Unknown variable name: ${var_name}"; return 1 ;;
-    esac
 }
 
 
@@ -181,13 +150,10 @@ deploy_voltagent_config() {
 # ============================================================================
 
 configure_mcp_servers() {
-    log_step 2 "${TOTAL_STEPS}" "Configure MCP Servers"
+    log_step 2 "${TOTAL_STEPS}" "Deploy Base MCP Servers"
 
-    local template="${SCRIPT_DIR}/config/mcp.json.template"
     local target="${CONFIG_DIR}/.mcp.json"
     local settings_local="${CONFIG_DIR}/settings.local.json"
-
-    require_file "${template}" "MCP template"
 
     # Detect tool paths
     local uvx_cmd npx_cmd safe_path
@@ -195,257 +161,85 @@ configure_mcp_servers() {
     npx_cmd="$(command -v npx 2>/dev/null || echo "npx")"
     safe_path="${HOME}/.local/bin:${HOME}/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
-    # Helper: check if a server is already configured (non-placeholder)
-    check_existing_server() {
-        local server_name="$1" env_key="$2" placeholder="$3"
+    # If .mcp.json already exists with configured credential servers, preserve it
+    if [[ -f "${target}" ]]; then
+        local has_credentials=false
         if command -v jq &>/dev/null; then
-            local val
-            val=$(jq -r ".mcpServers.\"${server_name}\".env.\"${env_key}\" // empty" "${target}" 2>/dev/null || true)
-            [[ -n "${val}" ]] && [[ "${val}" != "${placeholder}" ]]
-        else
-            grep -q "\"${env_key}\"" "${target}" 2>/dev/null && \
-            ! grep -q "\"${placeholder}\"" "${target}" 2>/dev/null
-        fi
-    }
-
-    # Parse existing config if present (for idempotency)
-    local existing_github=false existing_google=false existing_twitter=false existing_jira=false existing_postgres=false
-    if [[ -f "${target}" ]] && [[ "${RECONFIGURE_MCP}" == "false" ]]; then
-        log_info "Checking existing MCP configuration..."
-
-        check_existing_server github GITHUB_PERSONAL_ACCESS_TOKEN __GITHUB_TOKEN__ && existing_github=true
-        check_existing_server google-workspace GOOGLE_OAUTH_CLIENT_ID __GOOGLE_CLIENT_ID__ && existing_google=true
-        check_existing_server twitter API_KEY __TWITTER_API_KEY__ && existing_twitter=true
-        check_existing_server jira JIRA_URL __JIRA_URL__ && existing_jira=true
-
-        # Postgres stores its URL as a CLI arg, not env var — check if the placeholder is gone
-        if command -v jq &>/dev/null; then
-            local pg_arg
-            pg_arg=$(jq -r '.mcpServers.postgres.args[2] // empty' "${target}" 2>/dev/null || true)
-            [[ -n "${pg_arg}" ]] && [[ "${pg_arg}" != "__POSTGRES_URL__" ]] && existing_postgres=true
-        elif grep -q '"@modelcontextprotocol/server-postgres"' "${target}" 2>/dev/null && \
-             ! grep -q '__POSTGRES_URL__' "${target}" 2>/dev/null; then
-            existing_postgres=true
+            # Check if any credential-based server has real (non-placeholder) values
+            for server in github twitter jira; do
+                local val
+                val=$(jq -r ".mcpServers.\"${server}\" // empty" "${target}" 2>/dev/null || true)
+                if [[ -n "${val}" ]] && [[ "${val}" != "null" ]]; then
+                    has_credentials=true
+                    break
+                fi
+            done
         fi
 
-        [[ "${existing_github}" == "true" ]] && log_info "GitHub MCP server already configured"
-        [[ "${existing_google}" == "true" ]] && log_info "Google Workspace MCP server already configured"
-        [[ "${existing_twitter}" == "true" ]] && log_info "Twitter MCP server already configured"
-        [[ "${existing_jira}" == "true" ]] && log_info "Jira MCP server already configured"
-        [[ "${existing_postgres}" == "true" ]] && log_info "PostgreSQL MCP server already configured"
-    fi
-
-    # --- No-credential servers (always enabled) ---
-    log_info "Always-on MCP servers: Serena, Playwright, Memory, Diagram Bridge (no credentials needed)"
-
-    # --- GitHub ---
-    local setup_github=false github_token=""
-
-    if [[ "${existing_github}" == "true" ]]; then
-        log_info "Skipping GitHub credential prompt (already configured, use --reconfigure-mcp to change)"
-        setup_github=true
-        if command -v jq &>/dev/null; then
-            github_token=$(jq -r '.mcpServers.github.env.GITHUB_PERSONAL_ACCESS_TOKEN' "${target}")
-        else
-            github_token=$(grep -o '"GITHUB_PERSONAL_ACCESS_TOKEN"[[:space:]]*:[[:space:]]*"[^"]*"' "${target}" 2>/dev/null | sed 's/.*"\([^"]*\)"$/\1/' || echo "")
-        fi
-    else
-        echo ""
-        echo -e "${COLOR_BLUE}GitHub MCP Server Setup${COLOR_RESET}"
-        echo "  You need a Personal Access Token with repo + read:org scopes."
-        echo "  Create one at: https://github.com/settings/tokens"
-
-        if prompt_yes_no "  Set up GitHub MCP server?" "y"; then
-            prompt_credential "  Enter your GitHub Personal Access Token:" github_token
-            setup_github=true
+        if [[ "${has_credentials}" == "true" ]]; then
+            log_info ".mcp.json already has configured servers — preserving existing config"
+            SKIPPED_STEPS+=("MCP servers (.mcp.json already configured)")
+            return 0
         fi
     fi
 
-    # --- Google Workspace ---
-    local setup_google=false google_client_id="" google_client_secret="" google_email=""
+    # Deploy .mcp.json with only base servers (no credentials needed)
+    log_info "Deploying base MCP servers: Serena, Playwright, Memory, Diagram Bridge"
+    log_info "Credential-based servers (GitHub, Twitter, etc.) will be set up in your first mclaude session"
 
-    if [[ "${existing_google}" == "true" ]]; then
-        log_info "Skipping Google Workspace credential prompt (already configured, use --reconfigure-mcp to change)"
-        setup_google=true
-        if command -v jq &>/dev/null; then
-            google_client_id=$(jq -r '.mcpServers."google-workspace".env.GOOGLE_OAUTH_CLIENT_ID' "${target}")
-            google_client_secret=$(jq -r '.mcpServers."google-workspace".env.GOOGLE_OAUTH_CLIENT_SECRET' "${target}")
-            google_email=$(jq -r '.mcpServers."google-workspace".env.USER_GOOGLE_EMAIL' "${target}")
-        fi
-    else
-        echo ""
-        echo -e "${COLOR_BLUE}Google Workspace MCP Server Setup${COLOR_RESET}"
-        echo "  Provides access to Gmail, Google Docs, Sheets, Calendar, Drive."
-        echo "  You need a Google Cloud OAuth 2.0 Client ID."
-        echo "  Create one at: https://console.cloud.google.com/apis/credentials"
-        echo "  Required APIs: Gmail, Drive, Calendar, Docs, Sheets"
-
-        if prompt_yes_no "  Set up Google Workspace MCP server?" "n"; then
-            prompt_credential "  Enter your Google OAuth Client ID:" google_client_id false
-            prompt_credential "  Enter your Google OAuth Client Secret:" google_client_secret
-            prompt_credential "  Enter your Google account email:" google_email false
-            setup_google=true
-        fi
-    fi
-
-    # --- Twitter ---
-    local setup_twitter=false twitter_api_key="" twitter_api_secret="" twitter_access_token="" twitter_access_secret=""
-
-    if [[ "${existing_twitter}" == "true" ]]; then
-        log_info "Skipping Twitter credential prompt (already configured, use --reconfigure-mcp to change)"
-        setup_twitter=true
-        if command -v jq &>/dev/null; then
-            twitter_api_key=$(jq -r '.mcpServers.twitter.env.API_KEY' "${target}")
-            twitter_api_secret=$(jq -r '.mcpServers.twitter.env.API_SECRET_KEY' "${target}")
-            twitter_access_token=$(jq -r '.mcpServers.twitter.env.ACCESS_TOKEN' "${target}")
-            twitter_access_secret=$(jq -r '.mcpServers.twitter.env.ACCESS_TOKEN_SECRET' "${target}")
-        fi
-    else
-        echo ""
-        echo -e "${COLOR_BLUE}Twitter/X MCP Server Setup${COLOR_RESET}"
-        echo "  Post tweets and search. Requires Twitter API v2 credentials."
-        echo "  Create an app at: https://developer.x.com"
-
-        if prompt_yes_no "  Set up Twitter MCP server?" "n"; then
-            prompt_credential "  Enter your API Key:" twitter_api_key
-            prompt_credential "  Enter your API Secret:" twitter_api_secret
-            prompt_credential "  Enter your Access Token:" twitter_access_token
-            prompt_credential "  Enter your Access Token Secret:" twitter_access_secret
-            setup_twitter=true
-        fi
-    fi
-
-    # --- Jira ---
-    local setup_jira=false jira_url="" jira_email="" jira_api_token=""
-
-    if [[ "${existing_jira}" == "true" ]]; then
-        log_info "Skipping Jira credential prompt (already configured, use --reconfigure-mcp to change)"
-        setup_jira=true
-        if command -v jq &>/dev/null; then
-            jira_url=$(jq -r '.mcpServers.jira.env.JIRA_URL' "${target}")
-            jira_email=$(jq -r '.mcpServers.jira.env.JIRA_USERNAME' "${target}")
-            jira_api_token=$(jq -r '.mcpServers.jira.env.JIRA_API_TOKEN' "${target}")
-        else
-            jira_url=$(grep -o '"JIRA_URL"[[:space:]]*:[[:space:]]*"[^"]*"' "${target}" 2>/dev/null | sed 's/.*"\([^"]*\)"$/\1/' || echo "")
-            jira_email=$(grep -o '"JIRA_USERNAME"[[:space:]]*:[[:space:]]*"[^"]*"' "${target}" 2>/dev/null | sed 's/.*"\([^"]*\)"$/\1/' || echo "")
-            jira_api_token=$(grep -o '"JIRA_API_TOKEN"[[:space:]]*:[[:space:]]*"[^"]*"' "${target}" 2>/dev/null | sed 's/.*"\([^"]*\)"$/\1/' || echo "")
-        fi
-    else
-        echo ""
-        echo -e "${COLOR_BLUE}Jira/Atlassian MCP Server Setup${COLOR_RESET}"
-        echo "  You need your Jira URL, email, and API token."
-        echo "  Create a token at: https://id.atlassian.com/manage-profile/security/api-tokens"
-
-        if prompt_yes_no "  Set up Jira MCP server?" "n"; then
-            prompt_credential "  Enter your Jira URL (e.g. https://company.atlassian.net):" jira_url false
-            prompt_credential "  Enter your Jira email:" jira_email false
-            prompt_credential "  Enter your Jira API Token:" jira_api_token
-            setup_jira=true
-        fi
-    fi
-
-    # --- Postgres ---
-    local setup_postgres=false postgres_url=""
-
-    if [[ "${existing_postgres}" == "true" ]]; then
-        log_info "Skipping PostgreSQL credential prompt (already configured, use --reconfigure-mcp to change)"
-        setup_postgres=true
-        if command -v jq &>/dev/null; then
-            postgres_url=$(jq -r '.mcpServers.postgres.args[2]' "${target}")
-        else
-            postgres_url=$(grep -o '"__POSTGRES_URL__\|postgresql://[^"]*"' "${target}" | tr -d '"' | head -1)
-        fi
-    else
-        echo ""
-        echo -e "${COLOR_BLUE}PostgreSQL MCP Server Setup${COLOR_RESET}"
-        echo "  Direct SQL access to a PostgreSQL database."
-        echo "  Requires a connection URL: postgresql://user:pass@host:port/dbname"
-
-        if prompt_yes_no "  Set up PostgreSQL MCP server?" "n"; then
-            prompt_credential "  Enter your PostgreSQL connection URL:" postgres_url false
-            setup_postgres=true
-        fi
-    fi
-
-    # Build .mcp.json from template using Python for safe value substitution.
-    # Python string replacement avoids sed delimiter collisions when token values
-    # contain special characters (|, /, &, etc.). Values are passed via environment
-    # variables to avoid shell quoting issues in the heredoc.
-    log_info "Generating .mcp.json..."
-
-    local mcp_json
-    mcp_json=$(
-        MCP_SERENA_CMD="${uvx_cmd}" \
-        MCP_UVX_CMD="${uvx_cmd}" \
-        MCP_NPX_CMD="${npx_cmd}" \
-        MCP_SAFE_PATH="${safe_path}" \
-        MCP_GITHUB_TOKEN="${github_token}" \
-        MCP_GOOGLE_CLIENT_ID="${google_client_id}" \
-        MCP_GOOGLE_CLIENT_SECRET="${google_client_secret}" \
-        MCP_GOOGLE_EMAIL="${google_email}" \
-        MCP_TWITTER_API_KEY="${twitter_api_key}" \
-        MCP_TWITTER_API_SECRET="${twitter_api_secret}" \
-        MCP_TWITTER_ACCESS_TOKEN="${twitter_access_token}" \
-        MCP_TWITTER_ACCESS_SECRET="${twitter_access_secret}" \
-        MCP_JIRA_URL="${jira_url}" \
-        MCP_JIRA_USERNAME="${jira_email}" \
-        MCP_JIRA_API_TOKEN="${jira_api_token}" \
-        MCP_POSTGRES_URL="${postgres_url}" \
-        python3 - "${template}" <<'PYEOF'
-import sys, os
-
-with open(sys.argv[1], 'r') as f:
-    content = f.read()
-
-replacements = {
-    '__SERENA_CMD__':           os.environ.get('MCP_SERENA_CMD', ''),
-    '__UVX_CMD__':              os.environ.get('MCP_UVX_CMD', ''),
-    '__NPX_CMD__':              os.environ.get('MCP_NPX_CMD', ''),
-    '__JIRA_CMD__':             os.environ.get('MCP_UVX_CMD', ''),
-    '__PATH__':                 os.environ.get('MCP_SAFE_PATH', ''),
-    '__GITHUB_TOKEN__':         os.environ.get('MCP_GITHUB_TOKEN', ''),
-    '__GOOGLE_CLIENT_ID__':     os.environ.get('MCP_GOOGLE_CLIENT_ID', ''),
-    '__GOOGLE_CLIENT_SECRET__': os.environ.get('MCP_GOOGLE_CLIENT_SECRET', ''),
-    '__GOOGLE_EMAIL__':         os.environ.get('MCP_GOOGLE_EMAIL', ''),
-    '__TWITTER_API_KEY__':      os.environ.get('MCP_TWITTER_API_KEY', ''),
-    '__TWITTER_API_SECRET__':   os.environ.get('MCP_TWITTER_API_SECRET', ''),
-    '__TWITTER_ACCESS_TOKEN__': os.environ.get('MCP_TWITTER_ACCESS_TOKEN', ''),
-    '__TWITTER_ACCESS_SECRET__':os.environ.get('MCP_TWITTER_ACCESS_SECRET', ''),
-    '__JIRA_URL__':             os.environ.get('MCP_JIRA_URL', ''),
-    '__JIRA_USERNAME__':        os.environ.get('MCP_JIRA_USERNAME', ''),
-    '__JIRA_API_TOKEN__':       os.environ.get('MCP_JIRA_API_TOKEN', ''),
-    '__POSTGRES_URL__':         os.environ.get('MCP_POSTGRES_URL', ''),
-}
-
-for placeholder, value in replacements.items():
-    content = content.replace(placeholder, value)
-
-print(content, end='')
-PYEOF
-    )
-
-    # Remove unconfigured servers from JSON
-    for server_flag in "github:${setup_github}" "google-workspace:${setup_google}" "twitter:${setup_twitter}" "jira:${setup_jira}" "postgres:${setup_postgres}"; do
-        local server_name="${server_flag%%:*}"
-        local server_enabled="${server_flag##*:}"
-        if [[ "${server_enabled}" != "true" ]]; then
-            if command -v node &>/dev/null; then
-                mcp_json=$(printf '%s' "${mcp_json}" | MCP_SERVER_NAME="${server_name}" node -e "
-                    const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
-                    delete d.mcpServers[process.env.MCP_SERVER_NAME];
-                    process.stdout.write(JSON.stringify(d, null, 2));
-                ")
-            else
-                log_warn "Node.js not available, cannot remove unconfigured server: ${server_name}"
-            fi
-        fi
-    done
-
-    # Deploy .mcp.json (use printf for safe file writing)
     backup_file "${target}"
 
     if [[ "${DRY_RUN}" == "false" ]]; then
-        printf '%s\n' "${mcp_json}" > "${target}"
+        cat > "${target}" << MCPJSON
+{
+  "mcpServers": {
+    "serena": {
+      "command": "${uvx_cmd}",
+      "args": [
+        "--from",
+        "git+https://github.com/oraios/serena",
+        "serena-mcp-server",
+        "--context",
+        "claude-code"
+      ],
+      "env": {
+        "PATH": "${safe_path}"
+      }
+    },
+    "playwright": {
+      "command": "${npx_cmd}",
+      "args": [
+        "-y",
+        "@playwright/mcp"
+      ],
+      "env": {
+        "PATH": "${safe_path}"
+      }
+    },
+    "memory": {
+      "command": "${npx_cmd}",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-memory"
+      ],
+      "env": {
+        "PATH": "${safe_path}"
+      }
+    },
+    "diagram": {
+      "command": "${uvx_cmd}",
+      "args": [
+        "--from",
+        "mcp-mermaid-image-gen",
+        "mcp_mermaid_image_gen"
+      ],
+      "env": {
+        "PATH": "${safe_path}"
+      }
+    }
+  }
+}
+MCPJSON
         log_success ".mcp.json deployed to ${target}"
     else
         echo -e "${COLOR_YELLOW}[DRY RUN]${COLOR_RESET} Would deploy: ${target}"
@@ -454,14 +248,6 @@ PYEOF
     # Deploy settings.local.json (MCP enablement flags)
     log_info "Deploying settings.local.json with MCP enablement flags..."
 
-    # Build the enabledMcpjsonServers list based on what was configured
-    local servers='"serena", "playwright", "memory", "diagram"'
-    [[ "${setup_github}" == "true" ]] && servers="${servers}, \"github\""
-    [[ "${setup_google}" == "true" ]] && servers="${servers}, \"google-workspace\""
-    [[ "${setup_twitter}" == "true" ]] && servers="${servers}, \"twitter\""
-    [[ "${setup_jira}" == "true" ]] && servers="${servers}, \"jira\""
-    [[ "${setup_postgres}" == "true" ]] && servers="${servers}, \"postgres\""
-
     backup_file "${settings_local}"
 
     if [[ "${DRY_RUN}" == "false" ]]; then
@@ -469,7 +255,7 @@ PYEOF
 {
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
-    ${servers}
+    "serena", "playwright", "memory", "diagram"
   ]
 }
 SETTINGSLOCAL
@@ -478,16 +264,9 @@ SETTINGSLOCAL
         echo -e "${COLOR_YELLOW}[DRY RUN]${COLOR_RESET} Would deploy: ${settings_local}"
     fi
 
-    # Build summary of what was configured
-    local configured_list="Serena, Playwright, Memory, Diagram Bridge"
-    [[ "${setup_github}" == "true" ]] && configured_list="${configured_list}, GitHub"
-    [[ "${setup_google}" == "true" ]] && configured_list="${configured_list}, Google Workspace"
-    [[ "${setup_twitter}" == "true" ]] && configured_list="${configured_list}, Twitter"
-    [[ "${setup_jira}" == "true" ]] && configured_list="${configured_list}, Jira"
-    [[ "${setup_postgres}" == "true" ]] && configured_list="${configured_list}, PostgreSQL"
-
-    log_success "MCP servers configured (${configured_list})"
-    INSTALLED_STEPS+=("MCP servers (${configured_list})")
+    log_success "Base MCP servers configured (Serena, Playwright, Memory, Diagram Bridge)"
+    log_info "Additional servers will be offered during your first mclaude session"
+    INSTALLED_STEPS+=("Base MCP servers (Serena, Playwright, Memory, Diagram Bridge)")
 }
 
 # ============================================================================
@@ -810,15 +589,14 @@ print_summary() {
     echo "  1. Open a new terminal (or run: source ~/.bashrc)"
     echo "  2. Run: mclaude"
     echo ""
-    echo -e "${COLOR_BLUE}MCP servers are available in ALL projects automatically.${COLOR_RESET}"
+    echo -e "${COLOR_BLUE}Your first session will guide you through:${COLOR_RESET}"
+    echo "  - Setting up your profile (who you are, how you work)"
+    echo "  - Connecting services (GitHub, Gmail, Twitter, etc.)"
+    echo "  - Configuring your first project"
+    echo ""
+    echo -e "${COLOR_BLUE}Base MCP servers (no credentials needed):${COLOR_RESET}"
     echo "  Server definitions: ${CONFIG_DIR}/.mcp.json"
     echo "  Enablement flags:   ${CONFIG_DIR}/settings.local.json"
-    echo ""
-    echo -e "${COLOR_BLUE}VoltAgent per-project control:${COLOR_RESET}"
-    echo "  All categories disabled globally. Add specific agents to:"
-    echo "    <project>/.claude/agents/"
-    echo "  from:"
-    echo "    ~/.cc-mirror/mclaude/config/plugins/voltagent-subagents/<category>/"
     echo ""
 
     if [[ "${DRY_RUN}" == "true" ]]; then
@@ -853,11 +631,6 @@ main() {
     # Parse arguments
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --reconfigure-mcp)
-                RECONFIGURE_MCP=true
-                log_info "MCP reconfiguration mode enabled"
-                shift
-                ;;
             *)
                 # Let parse_common_args handle the rest
                 if ! parse_common_args "$1"; then
@@ -879,7 +652,6 @@ main() {
 
     # Verify template files
     require_file "${SCRIPT_DIR}/config/settings.json" "settings.json template"
-    require_file "${SCRIPT_DIR}/config/mcp.json.template" "MCP template"
     require_file "${SCRIPT_DIR}/scripts/update-checker.sh" "update-checker script"
 
     log_success "Prerequisites verified"
