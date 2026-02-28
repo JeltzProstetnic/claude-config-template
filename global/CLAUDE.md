@@ -203,6 +203,8 @@ No exceptions. No asking "want me to commit?" — just do it.
 
 **Rules live in rules, not in memory.** Persistent behavioral rules MUST go in `CLAUDE.md` (global or project-level), foundation files, or domain protocols — never in auto-memory files. Memory is for contextual notes (project structure, debugging insights, technical recipes). If it governs behavior, it's a rule and belongs here.
 
+**Troubleshooting reference machines:** When a fix regresses or a config issue recurs, ALWAYS consult two sources before reinventing: (1) the machine where the project was **last worked on** (check `session-history.md` for which machine), and (2) your **primary dev machine** (source of truth for how things should work). Read the relevant machine files, session histories, and configs from those machines to see if the problem was already solved there. Don't fix from scratch what was already fixed elsewhere.
+
 **Protocol creation:** When domain-complexity mistakes happen, create a protocol. See `~/.claude/foundation/protocol-creation.md`.
 
 **Adding domains:** Create dir under `~/agent-fleet/global/domains/`, add protocols, update `domains/INDEX.md`, reference from project manifests. These operations require being in the agent-fleet project context. From other projects, route domain creation requests through the cross-project inbox.

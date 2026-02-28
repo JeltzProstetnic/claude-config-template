@@ -10,10 +10,10 @@ _detect_config_repo() {
         echo "$(cd "$(dirname "$hook_real")/../.." && pwd)"
         return
     fi
-    for d in "$HOME/agent-fleet" "$HOME/cfg-agent-fleet"; do
+    for d in "$HOME/cfg-agent-fleet" "$HOME/agent-fleet"; do
         [[ -f "$d/sync.sh" && ! -f "$d/.template-repo" ]] && echo "$d" && return
     done
-    echo "$HOME/agent-fleet"  # final fallback
+    echo "$HOME/cfg-agent-fleet"  # final fallback
 }
 CONFIG_REPO="$(_detect_config_repo)"
 FAIL_MARKER="$CONFIG_REPO/.sync-failed"
@@ -28,7 +28,7 @@ if [ -f "$FAIL_MARKER" ]; then
     stage=$(grep '^stage=' "$FAIL_MARKER" | cut -d= -f2)
     time=$(grep '^time=' "$FAIL_MARKER" | cut -d= -f2-)
     detail=$(grep '^detail=' "$FAIL_MARKER" | cut -d= -f2-)
-    WARNINGS="CONFIG SYNC FAILED at $time — stage: $stage, detail: $detail. Run 'bash $CONFIG_REPO/sync.sh status' to diagnose. Uncommitted config changes may exist in $CONFIG_REPO/."
+    WARNINGS="CONFIG SYNC FAILED ($CONFIG_REPO) at $time — stage: $stage, detail: $detail. Run 'bash $CONFIG_REPO/sync.sh status' to diagnose. Uncommitted config changes may exist in $CONFIG_REPO/."
 fi
 
 # Check 2: Are symlinks intact?
@@ -38,7 +38,7 @@ fi
 
 # Check 3: Does config repo exist?
 if [ ! -d "$CONFIG_REPO/.git" ]; then
-    WARNINGS="${WARNINGS:+$WARNINGS | }Config repo not found at $CONFIG_REPO/. Clone your config repo and run: bash $CONFIG_REPO/sync.sh setup"
+    WARNINGS="${WARNINGS:+$WARNINGS | }Config repo not found at $CONFIG_REPO. Clone it and run: bash $CONFIG_REPO/sync.sh setup"
 fi
 
 # Check 4: Pull latest config (so inbox is current), and report changed files
@@ -89,7 +89,18 @@ if [ -f "$INBOX" ]; then
     fi
 fi
 
-# Check 7: Validate settings.json has all critical blocks
+# Check 7: Enforce Serena config (Serena regenerates defaults on update, wiping our settings)
+SERENA_CONFIG="$HOME/.serena/serena_config.yml"
+if [ -f "$SERENA_CONFIG" ]; then
+    if grep -q 'web_dashboard_open_on_launch: true' "$SERENA_CONFIG"; then
+        sed -i 's/web_dashboard_open_on_launch: true/web_dashboard_open_on_launch: false/' "$SERENA_CONFIG"
+    fi
+    if grep -q 'gui_log_window: true' "$SERENA_CONFIG"; then
+        sed -i 's/gui_log_window: true/gui_log_window: false/' "$SERENA_CONFIG"
+    fi
+fi
+
+# Check 8: Validate settings.json has all critical blocks
 SETTINGS_FILE="$HOME/.cc-mirror/mclaude/config/settings.json"
 if [ -f "$SETTINGS_FILE" ]; then
     MISSING_BLOCKS=""
@@ -103,7 +114,7 @@ if [ -f "$SETTINGS_FILE" ]; then
     fi
 fi
 
-# Check 8: Detect unmerged branches (mobile sessions create branches, not commits to main)
+# Check 9: Detect unmerged branches (mobile sessions create branches, not commits to main)
 if [ -d "$CONFIG_REPO/.git" ]; then
     UNMERGED=$(git -C "$CONFIG_REPO" branch -r --no-merged "$DEFAULT_BRANCH" 2>/dev/null | grep -v HEAD | sed 's/^ *//' | tr '\n' ', ' | sed 's/, $//')
     if [ -n "$UNMERGED" ]; then
