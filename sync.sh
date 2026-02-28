@@ -39,6 +39,9 @@ log_info()  { echo -e "${GREEN}[INFO]${NC} $*"; }
 log_warn()  { echo -e "${YELLOW}[WARN]${NC} $*"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $*"; }
 
+# Portable hostname (SteamOS has no hostname binary)
+get_hostname() { hostname 2>/dev/null || cat /etc/hostname 2>/dev/null || cat /proc/sys/kernel/hostname 2>/dev/null || echo "unknown"; }
+
 # ---- SETUP: Replace live files with symlinks to repo ----
 cmd_setup() {
     log_info "Setting up symlinks from live locations → repo"
@@ -129,10 +132,43 @@ cmd_deploy() {
     # Apply project folder icons (platform-appropriate)
     apply_project_icons
 
+    # Check live settings.json for missing critical blocks
+    check_settings_health
+
     # Template drift check
     check_template_drift
 
     log_info "Deploy complete."
+}
+
+# ---- SETTINGS HEALTH CHECK ----
+# Warns if live settings.json is missing critical blocks (permissions, hooks).
+# A partial settings.json causes permission prompt storms and missing hooks.
+check_settings_health() {
+    local live_settings="$HOME/.cc-mirror/mclaude/config/settings.json"
+    [ -f "$live_settings" ] || return 0
+
+    local issues=0
+
+    if ! grep -q '"permissions"' "$live_settings" 2>/dev/null; then
+        log_warn "settings.json is missing 'permissions' block — all tool calls will require manual approval"
+        log_warn "  Fix: redeploy from template: sed 's|__HOME__|$HOME|g' setup/config/settings.json > $live_settings"
+        issues=$((issues + 1))
+    fi
+
+    if ! grep -q '"hooks"' "$live_settings" 2>/dev/null; then
+        log_warn "settings.json is missing 'hooks' block — SessionStart/End hooks won't fire"
+        issues=$((issues + 1))
+    fi
+
+    if ! grep -q '"enabledPlugins"' "$live_settings" 2>/dev/null; then
+        log_warn "settings.json is missing 'enabledPlugins' block — skill plugins won't load"
+        issues=$((issues + 1))
+    fi
+
+    if [ "$issues" -gt 0 ]; then
+        log_warn "$issues critical block(s) missing from settings.json. Redeploy from template."
+    fi
 }
 
 # ---- PROJECT FOLDER ICONS ----

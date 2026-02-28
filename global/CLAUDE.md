@@ -147,7 +147,7 @@ Reading files and executing scripts from any project is always permitted. Only w
 |---------|-------------|
 | `cls` | Execute full 7-step shutdown checklist, then say "Shutdown complete — run /clear whenever you're ready." |
 | `end` | Execute full 7-step shutdown checklist, then say "Shutdown complete — you can exit now." |
-| `lsd` | **Project manager.** Read `~/agent-fleet/registry.md`, display projects grouped by priority (P1-P5) with: name, type, path, short description (from Notes column). Show active projects (P1-P3) by default, mention count of paused/dormant. Offer actions: **switch** (user picks a project by number/name), **new** (create project), **details** (show full info for one project). |
+| `lsd` | **Project manager.** Read `~/agent-fleet/registry.md`, display projects grouped by priority (P1-P5) with: name, type, path, short description (from Notes column). Show active projects (P1-P3) by default, mention count of paused/dormant. Offer actions: **switch** (user picks a project by number/name → update session-context.md, then open a new terminal tab in that directory: on tmux use `tmux new-window`, on KDE use Konsole D-Bus, on WSL use `wt.exe new-tab`), **new** (create project), **details** (show full info for one project). |
 
 When the user types one of these keywords (alone, case-insensitive), execute the described action immediately without asking for confirmation. These are shortcuts, not conversation starters.
 
@@ -187,6 +187,13 @@ No exceptions. No asking "want me to commit?" — just do it.
 **Native Linux (Fedora KDE, SteamOS, etc.):**
 - Use `xdg-open` for opening files (respects system default app)
 - No `/mnt/c/` or `powershell.exe` available
+- **Terminal tabs (Konsole/KDE):** Use D-Bus to open tabs and send commands:
+  ```bash
+  KONSOLE_SVC=$(qdbus org.kde.konsole-* 2>/dev/null | head -1)
+  SID=$(qdbus "$KONSOLE_SVC" /Windows/1 org.kde.konsole.Window.newSession "tab-name" "bash")
+  qdbus "$KONSOLE_SVC" /Sessions/$SID org.kde.konsole.Session.sendText "cd ~/project && mclaude\n"
+  ```
+- **Never use tmux on KDE machines** — the user has a graphical terminal with native tabs
 
 **macOS:**
 - Use `open <filepath>` for opening files (respects system default app)

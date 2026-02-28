@@ -7,7 +7,7 @@
     "CLAUDE_CODE_TEAM_MODE": "1",
     "CLAUDE_CODE_AGENT_TYPE": "team-lead",
     "DISABLE_AUTOUPDATER": "1",
-    "CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION": "1",
+    "CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION": "0",
     "FORCE_COLOR": "1",
     "COLORTERM": "truecolor"
   },
@@ -56,7 +56,18 @@
       "Bash(timeout:*)",
       "Bash(powershell.exe:*)",
       "Bash(cc-mirror:*)",
-      "Bash(mclaude:*)"
+      "Bash(mclaude:*)",
+      "Bash(pipx:*)",
+      "Bash(pip3:*)",
+      "Bash(qdbus:*)",
+      "Bash(jq:*)",
+      "Bash(sed:*)",
+      "Bash(awk:*)",
+      "Bash(diff:*)",
+      "Bash(stat:*)",
+      "Bash(date:*)",
+      "Bash(tmux:*)",
+      "Bash(nvm:*)"
     ]
   },
   "hooks": {
