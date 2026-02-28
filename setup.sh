@@ -167,7 +167,7 @@ fi
 step "4/7" "Machine catalog"
 
 CLAUDE_MACHINE_ID="${CLAUDE_MACHINE_ID:-}"
-prompt CLAUDE_MACHINE_ID "Machine ID (hostname or custom label)" "$(hostname)"
+prompt CLAUDE_MACHINE_ID "Machine ID (hostname or custom label)" "$(hostname 2>/dev/null || cat /etc/hostname 2>/dev/null || echo "unknown")"
 
 CATALOG_FILE="$REPO_DIR/machine-catalog.md"
 TOOL_ROWS=""

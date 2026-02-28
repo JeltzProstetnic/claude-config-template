@@ -6,10 +6,14 @@
 
 set -euo pipefail
 
+# Source lib.sh for portable get_hostname
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+[[ "${LIB_SH_LOADED:-}" != "true" ]] && source "${SCRIPT_DIR}/lib.sh"
+
 # --- Machine detection (mirrors CLAUDE.md Machine Identity table) ---
 detect_machine() {
     local hostname
-    hostname=$(hostname)
+    hostname=$(get_hostname)
     local user
     user=$(whoami)
 

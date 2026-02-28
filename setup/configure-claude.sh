@@ -727,7 +727,8 @@ configure_platform_settings() {
     if grep -q '^#force_color_prompt=yes' "${HOME}/.bashrc" 2>/dev/null; then
         backup_file "${HOME}/.bashrc"
         if [[ "${DRY_RUN}" == "false" ]]; then
-            sed -i'' -e 's/^#force_color_prompt=yes/force_color_prompt=yes/' "${HOME}/.bashrc"
+            # Portable in-place sed (GNU sed -i'' vs BSD sed -i '' differ)
+            sed 's/^#force_color_prompt=yes/force_color_prompt=yes/' "${HOME}/.bashrc" > "${HOME}/.bashrc.tmp" && mv "${HOME}/.bashrc.tmp" "${HOME}/.bashrc"
             log_success "Color prompt enabled"
         else
             echo -e "${COLOR_YELLOW}[DRY RUN]${COLOR_RESET} Would enable color prompt in .bashrc"

@@ -70,7 +70,7 @@ SHORT_TS=$(echo "$TIMESTAMP" | sed 's/\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}T[0-9]\{
 # Extract Machine
 MACHINE=$(printf '%s\n' "$CONTENT" | sed -n 's/.*\*\*Machine\*\*: \(.*\)/\1/p' | head -1)
 if [[ -z "$MACHINE" ]]; then
-    MACHINE=$(hostname)
+    MACHINE=$(hostname 2>/dev/null || cat /etc/hostname 2>/dev/null || echo "unknown")
 fi
 
 # Extract Session Goal

@@ -401,6 +401,11 @@ detect_distro() {
     echo "${DETECTED_DISTRO}"
 }
 
+# Portable hostname — works on SteamOS (no hostname binary), macOS, WSL, etc.
+get_hostname() {
+    hostname 2>/dev/null || cat /etc/hostname 2>/dev/null || cat /proc/sys/kernel/hostname 2>/dev/null || echo "unknown"
+}
+
 # Check if running on SteamOS (Arch-based, immutable root FS)
 is_steamos() {
     [[ -f /etc/os-release ]] && grep -qi 'steamos\|holo' /etc/os-release 2>/dev/null

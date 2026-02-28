@@ -38,7 +38,12 @@ if [[ -z "$INSTALLED" || "$INSTALLED" == "unknown" ]]; then
 fi
 
 # Check latest version from npm registry (timeout 5s to not block startup)
-LATEST=$(timeout 5 npm view @anthropic-ai/claude-code version 2>/dev/null || echo "")
+# Use timeout if available (GNU coreutils), fall back to bare command on macOS
+if command -v timeout &>/dev/null; then
+  LATEST=$(timeout 5 npm view @anthropic-ai/claude-code version 2>/dev/null || echo "")
+else
+  LATEST=$(npm view @anthropic-ai/claude-code version 2>/dev/null || echo "")
+fi
 
 mkdir -p "$(dirname "$UPDATE_MARKER")"
 date +%s > "$UPDATE_MARKER"
