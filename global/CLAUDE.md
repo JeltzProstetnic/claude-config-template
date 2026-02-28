@@ -7,7 +7,7 @@ Config repo: `~/agent-fleet/`
 
 ## Machine Identity
 
-Machine-specific knowledge is auto-loaded via `~/CLAUDE.local.md` (each machine has its own, not synced). Run `cat /etc/hostname` at startup (portable — works on all platforms including SteamOS where `hostname` binary may not exist) and state where you are in your first response.
+Machine-specific knowledge is auto-loaded via `~/CLAUDE.local.md` (each machine has its own, not synced). Read `/etc/hostname` at startup using the Read tool (not Bash — avoids permission prompts; portable across all platforms including SteamOS where `hostname` binary may not exist) and state where you are in your first response.
 
 If `CLAUDE.local.md` is missing, fall back to reading `~/.claude/machines/<machine>.md` manually.
 
