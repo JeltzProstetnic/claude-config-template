@@ -89,7 +89,21 @@ if [ -f "$INBOX" ]; then
     fi
 fi
 
-# Check 7: Detect unmerged branches (mobile sessions create branches, not commits to main)
+# Check 7: Validate settings.json has all critical blocks
+SETTINGS_FILE="$HOME/.cc-mirror/mclaude/config/settings.json"
+if [ -f "$SETTINGS_FILE" ]; then
+    MISSING_BLOCKS=""
+    for block in permissions hooks enabledPlugins; do
+        if ! grep -q "\"$block\"" "$SETTINGS_FILE" 2>/dev/null; then
+            MISSING_BLOCKS="${MISSING_BLOCKS:+$MISSING_BLOCKS, }$block"
+        fi
+    done
+    if [ -n "$MISSING_BLOCKS" ]; then
+        WARNINGS="${WARNINGS:+$WARNINGS | }settings.json is missing critical blocks: $MISSING_BLOCKS. This causes permission prompt storms and broken hooks. Fix: run 'bash $CONFIG_REPO/setup/configure-claude.sh' to redeploy from template."
+    fi
+fi
+
+# Check 8: Detect unmerged branches (mobile sessions create branches, not commits to main)
 if [ -d "$CONFIG_REPO/.git" ]; then
     UNMERGED=$(git -C "$CONFIG_REPO" branch -r --no-merged "$DEFAULT_BRANCH" 2>/dev/null | grep -v HEAD | sed 's/^ *//' | tr '\n' ', ' | sed 's/, $//')
     if [ -n "$UNMERGED" ]; then

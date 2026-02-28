@@ -319,125 +319,54 @@ log_info "mclaude launcher → $BIN_DIR/mclaude"
 # ──────────────────────────────────────────────
 log_step "Step 7/11: Config (settings.json + .mcp.json)"
 
-# settings.json — adapted for VPS (no WSL/Windows permissions)
-cat > "$CC_MIRROR_DIR/config/settings.json" <<SETTINGS
-{
-  "env": {
-    "CC_MIRROR_SPLASH": "1",
-    "CC_MIRROR_PROVIDER_LABEL": "Mirror Claude (VPS)",
-    "CC_MIRROR_SPLASH_STYLE": "mirror",
-    "TWEAKCC_CONFIG_DIR": "$CC_MIRROR_DIR/tweakcc",
-    "CLAUDE_CODE_TEAM_MODE": "1",
-    "CLAUDE_CODE_AGENT_TYPE": "team-lead",
-    "DISABLE_AUTOUPDATER": "1",
-    "CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION": "1",
-    "FORCE_COLOR": "1",
-    "COLORTERM": "truecolor"
-  },
-  "permissions": {
-    "allow": [
-      "Skill(orchestration)",
-      "WebSearch",
-      "WebFetch(*)",
-      "Read(*)",
-      "Glob(*)",
-      "Grep(*)",
-      "Write(*)",
-      "Edit(*)",
-      "Bash(ls:*)",
-      "Bash(cat:*)",
-      "Bash(echo:*)",
-      "Bash(which:*)",
-      "Bash(env:*)",
-      "Bash(wc:*)",
-      "Bash(tr:*)",
-      "Bash(tput:*)",
-      "Bash(command:*)",
-      "Bash(head:*)",
-      "Bash(tail:*)",
-      "Bash(sort:*)",
-      "Bash(grep:*)",
-      "Bash(find:*)",
-      "Bash(md5sum:*)",
-      "Bash(crc32:*)",
-      "Bash(sha256sum:*)",
-      "Bash(awk:*)",
-      "Bash(sed:*)",
-      "Bash(diff:*)",
-      "Bash(xargs:*)",
-      "Bash(basename:*)",
-      "Bash(dirname:*)",
-      "Bash(realpath:*)",
-      "Bash(stat:*)",
-      "Bash(file:*)",
-      "Bash(date:*)",
-      "Bash(tee:*)",
-      "Bash(touch:*)",
-      "Bash(test:*)",
-      "Bash([:*)",
-      "Bash(pwd:*)",
-      "Bash(git:*)",
-      "Bash(npm:*)",
-      "Bash(npx:*)",
-      "Bash(node:*)",
-      "Bash(python3:*)",
-      "Bash(python:*)",
-      "Bash(pip:*)",
-      "Bash(uvx:*)",
-      "Bash(curl:*)",
-      "Bash(gh:*)",
-      "Bash(mkdir:*)",
-      "Bash(cp:*)",
-      "Bash(mv:*)",
-      "Bash(chmod:*)",
-      "Bash(kill:*)",
-      "Bash(docker:*)",
-      "Bash(timeout:*)",
-      "Bash(tmux:*)",
-      "Bash(cc-mirror:*)",
-      "Bash(mclaude:*)",
-      "mcp__serena__*",
-      "mcp__github__*"
-    ]
-  },
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash ~/.claude/hooks/config-check.sh",
-            "timeout": 5
-          }
-        ]
-      }
-    ],
-    "SessionEnd": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash ~/.claude/hooks/config-auto-sync.sh",
-            "timeout": 30
-          }
-        ]
-      }
-    ]
-  },
-  "enabledPlugins": {
-    "voltagent-lang@voltagent-subagents": false,
-    "voltagent-infra@voltagent-subagents": false,
-    "voltagent-core-dev@voltagent-subagents": false,
-    "voltagent-qa-sec@voltagent-subagents": false,
-    "voltagent-data-ai@voltagent-subagents": false,
-    "voltagent-dev-exp@voltagent-subagents": false,
-    "voltagent-domains@voltagent-subagents": false,
-    "voltagent-biz@voltagent-subagents": true,
-    "voltagent-meta@voltagent-subagents": false,
-    "voltagent-research@voltagent-subagents": true
-  }
-}
-SETTINGS
+# settings.json — deploy from template, then apply VPS-specific overrides
+SETTINGS_TEMPLATE="$CONFIG_REPO/setup/config/settings.json"
+SETTINGS_TARGET="$CC_MIRROR_DIR/config/settings.json"
+
+if [[ -f "$SETTINGS_TEMPLATE" ]]; then
+    sed "s|__HOME__|${HOME}|g" "$SETTINGS_TEMPLATE" > "$SETTINGS_TARGET"
+    log_info "settings.json deployed from template"
+
+    # Apply VPS-specific overrides: provider label, plugin config, extra permissions
+    python3 -c "
+import json
+
+with open('$SETTINGS_TARGET', 'r') as f:
+    s = json.load(f)
+
+# VPS provider label
+s['env']['CC_MIRROR_PROVIDER_LABEL'] = 'Mirror Claude (VPS)'
+
+# VPS-specific extra permissions (not in base template)
+vps_extras = [
+    'Bash(md5sum:*)', 'Bash(crc32:*)', 'Bash(sha256sum:*)',
+    'Bash(xargs:*)', 'Bash(basename:*)', 'Bash(dirname:*)',
+    'Bash(realpath:*)', 'Bash(file:*)', 'Bash(tee:*)',
+    'Bash(touch:*)', 'Bash(test:*)', 'Bash([:*)',
+    'mcp__serena__*', 'mcp__github__*'
+]
+existing = set(s.get('permissions', {}).get('allow', []))
+for perm in vps_extras:
+    if perm not in existing:
+        s['permissions']['allow'].append(perm)
+
+# Remove WSL-only permissions
+s['permissions']['allow'] = [p for p in s['permissions']['allow'] if p != 'Bash(powershell.exe:*)']
+
+# VPS plugin config: only biz+research enabled (mobile context)
+for k in s.get('enabledPlugins', {}):
+    if 'voltagent' in k:
+        s['enabledPlugins'][k] = k in ('voltagent-biz@voltagent-subagents', 'voltagent-research@voltagent-subagents')
+
+with open('$SETTINGS_TARGET', 'w') as f:
+    json.dump(s, f, indent=2)
+    f.write('\n')
+" 2>/dev/null || log_warn "VPS overrides failed — template deployed as-is (still functional)"
+    log_info "VPS-specific overrides applied"
+else
+    log_warn "settings.json template not found — creating minimal config"
+    log_warn "Run configure-claude.sh after bootstrap to get full config"
+fi
 
 # .mcp.json — VPS-adapted (no pst-search, secrets injected)
 UVX_PATH="$(which uvx 2>/dev/null || echo "$HOME/.local/bin/uvx")"
