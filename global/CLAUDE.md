@@ -145,7 +145,7 @@ Reading files and executing scripts from any project is always permitted. Only w
 
 | Keyword | What it does |
 |---------|-------------|
-| `cls` | Execute full 7-step shutdown checklist, then say "Shutdown complete — run /clear whenever you're ready." |
+| `cls` | Execute full 7-step shutdown checklist, then say "Shutdown complete — run /clear whenever you're ready." **If `cls` is the user's very first message**, skip the startup checklist entirely — the user is switching projects and doesn't need full context loading. Just run shutdown. Only run the startup checklist afterward if the user stays in the current project (i.e., sends a follow-up task instead of `/clear`). |
 | `end` | Execute full 7-step shutdown checklist, then say "Shutdown complete — you can exit now." |
 | `lsd` | **Project dashboard.** See full spec below. |
 
@@ -153,35 +153,54 @@ When the user types one of these keywords (alone, case-insensitive), execute the
 
 **`lsd` — project dashboard spec:**
 
-1. **Data collection.** Read `~/agent-fleet/registry.md`. For each active project (P1-P3) that exists on the current machine, collect in parallel:
-   - **Open tasks**: grep `^- \[ \]` from `<path>/backlog.md`, count by `[P1]`-`[P5]` tag (untagged = P3)
+**STRICT FORMAT — follow exactly. Do NOT improvise, use code blocks, or simplify.**
+
+1. **Data collection.** Read `~/agent-fleet/registry.md`. Collect data for **ALL** registered projects (P1-P3 by default, P1-P5 with `lsd all`), regardless of whether they exist on the current machine:
+   - **Open tasks**: If path exists locally, grep `^- \[ \]` from `<path>/backlog.md`, count by `[P1]`-`[P5]` tag (untagged = P3). If path doesn't exist, show `—`.
    - **Deadlines**: scan backlog Open section for date patterns, "deadline", "due", "by March", "days" etc.
-   - **Disk size**: `du -sh <path>` (skip if path doesn't exist locally)
+   - **Disk size**: `du -sh <path>`. If path doesn't exist on this machine → show `—` (em dash). This is how the user sees which projects are local vs remote-only.
 
-2. **Display format.** Group by priority tier. Sub-projects (Parent column set) indent under parent. Number every project for quick reference.
+2. **Display format.** Render as a **markdown table** (not a code block, not monospace art). Group rows by priority tier using a tier header row (merged across columns). Sub-projects indent with `+- ` prefix in the Name column. Number every top-level project sequentially.
 
-```
- [P1] CRITICAL
-  1. my-project     ~/my-project      code        3P1 1P2 4P3    1.2G
-     +- sub-proj    ~/sub-proj        library     1P2            340M
-  2. config-repo    ~/agent-fleet     meta/config 2P2 1P3        5M
+   **Exact table structure — 6 columns:**
 
- [P2] ACTIVE
-  3. another-proj   ~/another-proj    code        ...            2.1G
+   | # | Name | Path | Type | Tasks | Size |
+   |---|------|------|------|-------|------|
 
- [P3] ONGOING
-  4. side-project   ~/side-project    code        ...            45M
+   **Tier header rows** span the table as a bold label in the Name column, other cells empty:
 
- + 3 paused/dormant (lsd all)
-```
+   | | **[P1] CRITICAL** | | | | |
 
-   Key: `(d)` = dual-push, `(p)` = public+private pair. `!!` = deadline flag. Task counts only show priorities that have items.
+   **Sub-projects** use `+- ` prefix, no number:
+
+   | | +- sub-project | ~/sub-project | library | 2 open | 128K |
+
+   **Task counts** use compact format: `3P1 1P2 4P3` (only show priorities that have items). If no backlog or not local: `—`.
+
+   **Type indicators** append in parentheses: `(d)` = dual-push, `(p)` = public+private pair.
+
+   **Deadline flags**: append `!!` + description to the Size column: `544K !! Mar 15`.
+
+   **Reference rendering** (example with generic data — follow this structure exactly):
+
+   | # | Name | Path | Type | Tasks | Size |
+   |--:|------|------|------|-------|-----:|
+   | | **[P1] CRITICAL** | | | | |
+   | 1 | my-project | ~/my-project | code (p) | 3P1 1P2 4P3 | 1.2G |
+   | | +- sub-proj | ~/sub-proj | library | 1P2 | 340M |
+   | 2 | config-repo | ~/agent-fleet | meta/config | 2P2 1P3 | 5M |
+   | | **[P2] ACTIVE** | | | | |
+   | 3 | another-proj | ~/another-proj | code | 5P2 3P3 | 2.1G |
+   | 4 | remote-proj | ~/remote-proj | code (d) | — | — |
+   | | **[P3] ONGOING** | | | | |
+   | 5 | side-project | ~/side-project | code | 1P3 | 45M |
+
+   After the table: `+ N paused/dormant (lsd all)` if P4-P5 projects were omitted.
 
 3. **Actions.** After the table, show:
-```
- switch <N>  Open project in new tab    details <N>  Full project info
- new         Create new project         all          Show paused/dormant too
-```
+
+   `switch <N>` Open project in new tab | `details <N>` Full project info | `new` Create new project | `all` Show P4-P5 too
+
    - **switch**: archive current session-context.md, open new terminal tab in that project's directory (platform-aware: Konsole D-Bus on KDE, tmux on VPS, wt.exe on WSL)
    - **details**: show full info including machines, GitHub remotes, agents, multi-repo setup
    - **new**: follow project-setup.md
