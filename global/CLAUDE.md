@@ -147,9 +147,45 @@ Reading files and executing scripts from any project is always permitted. Only w
 |---------|-------------|
 | `cls` | Execute full 7-step shutdown checklist, then say "Shutdown complete — run /clear whenever you're ready." |
 | `end` | Execute full 7-step shutdown checklist, then say "Shutdown complete — you can exit now." |
-| `lsd` | **Project manager.** Read `~/agent-fleet/registry.md`, display projects grouped by priority (P1-P5) with: name, type, path, short description (from Notes column). Show active projects (P1-P3) by default, mention count of paused/dormant. Offer actions: **switch** (user picks a project by number/name → update session-context.md, then open a new terminal tab in that directory: on tmux use `tmux new-window`, on KDE use Konsole D-Bus, on WSL use `wt.exe new-tab`), **new** (create project), **details** (show full info for one project). |
+| `lsd` | **Project dashboard.** See full spec below. |
 
 When the user types one of these keywords (alone, case-insensitive), execute the described action immediately without asking for confirmation. These are shortcuts, not conversation starters.
+
+**`lsd` — project dashboard spec:**
+
+1. **Data collection.** Read `~/agent-fleet/registry.md`. For each active project (P1-P3) that exists on the current machine, collect in parallel:
+   - **Open tasks**: grep `^- \[ \]` from `<path>/backlog.md`, count by `[P1]`-`[P5]` tag (untagged = P3)
+   - **Deadlines**: scan backlog Open section for date patterns, "deadline", "due", "by March", "days" etc.
+   - **Disk size**: `du -sh <path>` (skip if path doesn't exist locally)
+
+2. **Display format.** Group by priority tier. Sub-projects (Parent column set) indent under parent. Number every project for quick reference.
+
+```
+ [P1] CRITICAL
+  1. my-project     ~/my-project      code        3P1 1P2 4P3    1.2G
+     +- sub-proj    ~/sub-proj        library     1P2            340M
+  2. config-repo    ~/agent-fleet     meta/config 2P2 1P3        5M
+
+ [P2] ACTIVE
+  3. another-proj   ~/another-proj    code        ...            2.1G
+
+ [P3] ONGOING
+  4. side-project   ~/side-project    code        ...            45M
+
+ + 3 paused/dormant (lsd all)
+```
+
+   Key: `(d)` = dual-push, `(p)` = public+private pair. `!!` = deadline flag. Task counts only show priorities that have items.
+
+3. **Actions.** After the table, show:
+```
+ switch <N>  Open project in new tab    details <N>  Full project info
+ new         Create new project         all          Show paused/dormant too
+```
+   - **switch**: archive current session-context.md, open new terminal tab in that project's directory (platform-aware: Konsole D-Bus on KDE, tmux on VPS, wt.exe on WSL)
+   - **details**: show full info including machines, GitHub remotes, agents, multi-repo setup
+   - **new**: follow project-setup.md
+   - **all**: re-display including P4-P5 projects
 
 **Session shutdown checklist — MANDATORY.** When the user says "prepare for shutdown", "exit", "auto-compact restart", `cls`, `end`, or anything suggesting session end → run ALL 7 steps from `~/.claude/foundation/session-protocol.md` Section "Session Shutdown Checklist", without asking. That file is the canonical, detailed checklist. Quick summary:
 

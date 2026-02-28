@@ -13,7 +13,10 @@ Conditionally loaded files containing operational knowledge for specific tools a
 
 | File | Trigger | Content |
 |------|---------|---------|
-| (add entries as you create knowledge files) | | |
+| `jira-atlassian.md` | Using Atlassian/Jira MCP tools | v2.1.0 bugs, working/broken tools, patch procedure |
+| `dev-browser-ops.md` | Using dev-browser skill or browser automation | Startup, Chromium drift fix, session persistence |
+| `age-encryption.md` | Encryption tasks involving age/pyrage | age CLI TTY limitation, pyrage alternative, passphrase handling |
+| `mcp-deployment.md` | Adding new MCP server or debugging MCP server config | Pre-deployment checklist, port conflicts, onboarding suppression, per-server notes |
 
 ## Adding New Knowledge Files
 
@@ -21,3 +24,4 @@ Conditionally loaded files containing operational knowledge for specific tools a
 2. Add a conditional loading entry in `global/CLAUDE.md` (see "Conditional loading" section)
 3. Update this INDEX
 4. Format: filename is lowercase, hyphens for spaces (e.g., `dev-browser-ops.md`)
+5. Propagate to template if generic (strip personal details)

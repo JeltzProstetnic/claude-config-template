@@ -61,10 +61,16 @@
 | Field | Value |
 |-------|-------|
 | **Package** | `serena-mcp-server` (via `uvx` from git) |
-| **Command** | `uvx --from git+https://github.com/oraios/serena serena-mcp-server --context claude-code --open-web-dashboard False` |
-| **Config location** | `.mcp.json` (server name: `serena`) — vanilla: `~/.mcp.json`, cc-mirror: `~/.cc-mirror/<variant>/config/.mcp.json` |
+| **Command** | `uvx --from git+https://github.com/oraios/serena serena-mcp-server --context claude-code` |
+| **Config location** | `~/.cc-mirror/mclaude/config/.mcp.json` (server name: `serena`) |
+| **Global config** | `~/.serena/serena_config.yml` — deployed by `configure-claude.sh` |
 | **Auth** | None (local tool) |
 | **Env vars** | `PATH` and `DOTNET_ROOT` for .NET support |
+
+**Important config settings in `~/.serena/serena_config.yml`:**
+- `web_dashboard_open_on_launch: false` — prevents browser opening on every mclaude start
+- `web_dashboard: true` — dashboard available at `http://localhost:24282/dashboard/` when needed
+- Onboarding memories are per-project in `~/.serena/` — created on first project activation
 
 ---
 

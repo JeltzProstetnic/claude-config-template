@@ -264,6 +264,44 @@ SETTINGSLOCAL
         echo -e "${COLOR_YELLOW}[DRY RUN]${COLOR_RESET} Would deploy: ${settings_local}"
     fi
 
+    # Deploy Serena global config (suppress browser open on launch)
+    local serena_config_dir="${HOME}/.serena"
+    local serena_config="${serena_config_dir}/serena_config.yml"
+    if [[ ! -f "${serena_config}" ]]; then
+        log_info "Creating Serena config (suppress browser open on launch)..."
+        if [[ "${DRY_RUN}" == "false" ]]; then
+            mkdir -p "${serena_config_dir}"
+            cat > "${serena_config}" << 'SERENAYML'
+language_backend: LSP
+gui_log_window: false
+web_dashboard: true
+web_dashboard_open_on_launch: false
+web_dashboard_listen_address: 127.0.0.1
+log_level: 20
+trace_lsp_communication: false
+ls_specific_settings: {}
+ignored_paths: []
+tool_timeout: 240
+excluded_tools: []
+included_optional_tools: []
+fixed_tools: []
+base_modes:
+default_modes:
+- interactive
+- editing
+default_max_tool_answer_chars: 150000
+token_count_estimator: CHAR_COUNT
+symbol_info_budget: 10
+projects: []
+SERENAYML
+            log_success "Serena config deployed to ${serena_config}"
+        else
+            echo -e "${COLOR_YELLOW}[DRY RUN]${COLOR_RESET} Would deploy: ${serena_config}"
+        fi
+    else
+        log_info "Serena config already exists at ${serena_config} — preserving"
+    fi
+
     log_success "Base MCP servers configured (Serena, Playwright, Memory, Diagram Bridge)"
     log_info "Additional servers will be offered during your first mclaude session"
     INSTALLED_STEPS+=("Base MCP servers (Serena, Playwright, Memory, Diagram Bridge)")
