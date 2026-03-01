@@ -80,7 +80,6 @@
       "mcp__workspace__*",
       "mcp__github__*",
       "mcp__playwright__*",
-      "mcp__memory__*",
       "mcp__diagram__*"
     ]
   },
