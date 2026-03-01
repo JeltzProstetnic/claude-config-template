@@ -21,10 +21,10 @@ This system adds:
 ```
 cls     shut down cleanly, then /clear
 end     shut down cleanly, then exit
-lsd     project manager — list, switch, create projects
+lsd     project dashboard — list, switch, create projects
 ```
 
-Type any of these as your entire message. No arguments, no syntax. `cls` and `end` run the full shutdown protocol (save state, archive session, commit, push) before clearing or exiting — so you never lose work. `lsd` reads the project registry and lets you browse, switch, or create projects.
+Type any of these as your entire message. No arguments, no syntax. `cls` and `end` run the full shutdown protocol (save state, archive session, commit, push) before clearing or exiting — so you never lose work. `lsd` shows a project dashboard with box-drawing tables grouped by priority tier, task counts from backlogs, and disk sizes. Data is pre-computed at session shutdown and cached — `lsd` reads the cache instantly, `lsd refresh` re-scans everything.
 
 ### Context Rot Awareness
 
@@ -34,6 +34,7 @@ Claude Code sessions degrade silently. The context window fills up, auto-compact
 |-----------|-----|
 | **Continuous archival** | SessionEnd hooks auto-rotate session state to history — even on `/clear`, crashes, or unexpected exits. Whatever was on disk gets archived. |
 | **Unclean shutdown detection** | SessionStart hooks detect when the previous session didn't shut down properly and warn Claude to review what was lost. |
+| **Config health check** | SessionStart hooks validate symlink integrity, auto-pull config if behind remote, and clean up stale tool permissions from `settings.local.json`. |
 | **Cross-project commit** | Session files in the current project get committed automatically at session end — not just the config repo. |
 | **Live context meter** | Status line shows model name, context usage %, and kilotokens used — color-coded green/yellow/red so you know when to wrap up. |
 
@@ -79,6 +80,8 @@ bash setup.sh
 
 **5. Done.** Open Claude Code in any project and it will automatically use your new configuration.
 
+For a more detailed walkthrough, see the [Onboarding Guide](docs/onboarding-guide.md).
+
 ---
 
 ## What Changes After Setup
@@ -98,6 +101,9 @@ bash setup.sh
 - Config syncs across all your computers via git
 - MCP servers configured once, work everywhere
 - Domain protocols (TDD, publishing, infrastructure) enforce quality automatically
+- Multiple personas with automatic context-based switching
+- Config health checks at startup — symlinks, stale sessions, permission cleanup
+- Test suite covering core infrastructure (session rotation, sync, dashboard, config checks)
 
 ---
 
@@ -123,6 +129,24 @@ graph TD
 ```
 
 The key idea: Claude doesn't load everything at once. A coding project loads coding rules. An infrastructure project loads server rules. This keeps Claude fast and focused.
+
+### Multi-Persona System
+
+You can define multiple named personalities — each with its own traits, communication style, and activation rules. For example, you might have a focused workhorse persona as the default and a warmer, encouraging persona that activates when you're frustrated.
+
+Each persona has:
+- **Name** — displayed as a bold prefix on responses (e.g., `**Atlas:**`)
+- **Traits** — comma-separated style descriptors (efficient, dry-humor, warm, etc.)
+- **Activation rule** — natural language describing when to switch (e.g., "when user is frustrated", "when discussing architecture")
+- **Style** — free-text description of how this persona communicates
+
+The default persona activates at session start. Others switch in automatically based on conversation context — Claude evaluates the activation rules against what's happening and switches when a rule matches. You can also force a switch by saying "switch to [Name]".
+
+Personas are defined in `global/foundation/personas.md`. If you want a different personality on a specific machine (e.g., more concise on mobile), add a `## Persona` section to that machine's config file — it fully overrides the global personas for that device.
+
+The active persona name is written to `~/.claude/.active-persona` so the statusline can display it.
+
+The setup process offers to configure personas during onboarding — or you can skip it and add them later.
 
 ### Session Flow
 
@@ -169,19 +193,23 @@ agent-fleet/
 │
 ├── global/
 │   ├── CLAUDE.md                  The main prompt (the "dispatcher")
-│   ├── foundation/                Core rules: sessions, identity, protocols
+│   ├── foundation/                Core rules: sessions, identity, protocols, personas
 │   ├── domains/                   Topic-specific rules (coding, infra, etc.)
 │   ├── reference/                 Tool guides, troubleshooting docs
-│   ├── knowledge/                 Operational notes (tool-specific tips)
+│   ├── knowledge/                 Operational tips (tool bugs, workarounds, recipes)
 │   ├── machines/                  Per-computer configuration
-│   └── hooks/                     Auto-sync scripts
+│   └── hooks/                     SessionStart/End automation scripts
+│
+├── tests/
+│   ├── run.sh                     Test runner (all suites)
+│   └── test_*.sh                  Individual test suites
 │
 ├── setup/
 │   ├── install-base.sh            Phase 1: system deps, Node.js
 │   ├── configure-claude.sh        Phase 2: MCP, launchers, hooks
 │   ├── lib.sh                     Shared utilities (multi-distro detection)
-│   ├── config/                    Template configs (.mcp.json, settings.json)
-│   └── scripts/                   Operational scripts (session rotation, skill installer)
+│   ├── config/                    Template configs (.mcp.json, settings.json, statusline.sh)
+│   └── scripts/                   Operational scripts (session rotation, config check, dashboard)
 │
 ├── projects/
 │   └── _example/rules/CLAUDE.md   Example project config
@@ -231,6 +259,14 @@ Domains are topic-specific rule sets. Each project declares which ones it needs.
 | **IT Infrastructure** | Server management, Docker, DNS, deployment |
 
 Add your own: copy `global/domains/_template/`, edit it, reference it from your project's config.
+
+### Operational Knowledge
+
+`global/knowledge/` stores tool-specific tips, workarounds, and troubleshooting recipes — loaded conditionally when the relevant tool or situation is encountered. Unlike domains (which are broad rule sets declared per-project), knowledge files are narrow and actionable, growing organically from real debugging sessions. Examples: MCP deployment issues, permission prompt fixes, browser automation gotchas.
+
+### Test Suite
+
+The system includes a test suite (`tests/run.sh`) covering session rotation, git sync, config health checks, dashboard refresh, and more. TDD is enforced as a development rule — all new code and features require corresponding tests.
 
 ### Skill Collections (optional)
 
