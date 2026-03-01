@@ -57,6 +57,12 @@ If `CLAUDE.local.md` is missing, fall back to reading `~/.claude/machines/<machi
 - Domain catalog: `~/.claude/domains/INDEX.md`
 - **Project catalog: `~/agent-fleet/registry.md`** — read when user mentions other projects
 
+## Development Rules
+
+- **No compound `cd` commands:** NEVER use `cd <dir> && <command>` in Bash tool calls. Claude Code flags compound `cd` commands as security risks ("bare repository attacks"), causing permission prompts that pollute `settings.local.json`. Instead: use `git -C <path>` for git commands, absolute paths for everything else.
+- **Know your gitignore:** Before `git add`, verify the file isn't gitignored. `.claude/settings.local.json` and `secrets/vault.json` are gitignored. Don't waste tool calls trying to stage them.
+- **Auto-sync awareness:** The SessionEnd hook runs `sync.sh collect` which commits pending changes. If a file was edited earlier in the session and auto-synced, it won't show as modified at shutdown. Check `git log --oneline -1 -- <file>` before chasing phantom diffs.
+
 ## Persona System
 
 Personas are **multiple named personalities** with semantic switching rules. They are defined globally and apply to all machines by default, with optional per-machine overrides.
