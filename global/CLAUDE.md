@@ -2,6 +2,7 @@
 
 @~/.claude/foundation/user-profile.md
 @~/.claude/foundation/session-protocol.md
+@~/.claude/foundation/personas.md
 
 Config repo: `~/agent-fleet/`
 
@@ -43,6 +44,8 @@ If `CLAUDE.local.md` is missing, fall back to reading `~/.claude/machines/<machi
    - Cross-project coordination needed: `~/.claude/foundation/cross-project-sync.md`
    - CLI tool usage or uncertainty about installed software: `~/.claude/reference/system-tools.md`
    - Tool-specific operational issues: `~/.claude/knowledge/<tool>.md` (check INDEX for available files)
+   - Plan mode issues, hangs, or freezes: `~/.claude/knowledge/plan-mode-issues.md`
+   - Permission prompts, settings.local.json issues, tool approval problems: `~/.claude/knowledge/claude-code-permissions.md`
 
 6. **Check for project-specific knowledge**: `ls <project>/.claude/knowledge/` or `<project>/.claude/*.md`
 
@@ -53,6 +56,35 @@ If `CLAUDE.local.md` is missing, fall back to reading `~/.claude/machines/<machi
 - Foundation modules: `~/.claude/foundation/INDEX.md`
 - Domain catalog: `~/.claude/domains/INDEX.md`
 - **Project catalog: `~/agent-fleet/registry.md`** — read when user mentions other projects
+
+## Persona System
+
+Personas are **multiple named personalities** with semantic switching rules. They are defined globally and apply to all machines by default, with optional per-machine overrides.
+
+**Persona source (layered, first match wins):**
+1. **Machine file** (`~/.claude/machines/<machine>.md`) — if it has a `## Persona` section, use those personas exclusively (full override, not merge)
+2. **Global default** (`~/.claude/foundation/personas.md`) — used when the machine file has no `## Persona` section
+
+**Persona format** (each persona is a `### Name` subsection under `## Persona`):
+
+| Field | Purpose | Example |
+|-------|---------|---------|
+| **Name** | Display name used as response prefix | Assistant, Supporter |
+| **Traits** | Comma-separated communication style descriptors | efficient, warm, sarcastic |
+| **Activates** | Semantic rule for when this persona takes over | default, when user is frustrated |
+| **Color** | Not rendered in chat — Claude Code's markdown renderer strips ANSI escape codes. The statusline CAN render ANSI colors. Field kept for potential future rendering. | cyan, green |
+| **Style** | Free-text description of how this persona communicates | Gets the job done. Professional, clear... |
+
+**Rendering rules:**
+- At session start, load personas from the machine file (if it has a `## Persona` section) or from the global file
+- The persona with `Activates: default` is active at session start
+- Prefix FIRST substantive response to each user message with the persona name in **bold markdown**: e.g., `**Assistant:**`
+- On persona switch, write the active persona name to `~/.claude/.active-persona` (one line, just the name). Write on session start (default persona) and on every switch.
+- Continuously evaluate switching rules against conversation context. Switch when a rule matches. **Stay in the switched persona until the triggering condition clearly ends.**
+- The user can always force a switch by saying "switch to [Name]" or just "[Name]"
+- If no persona defined → respond normally (no prefix, no trait flavoring)
+
+**Onboarding:** During first-run refinement, offer a multi-personality setup — "Would you like your agent to have different personalities for different situations?" Store in `~/.claude/foundation/personas.md`. If the user wants device-specific personas, add a `## Persona` section to the relevant machine file.
 
 ## Conventions
 
@@ -153,62 +185,63 @@ When the user types one of these keywords (alone, case-insensitive), execute the
 
 **`lsd` — project dashboard spec:**
 
-**STRICT FORMAT — follow exactly. Do NOT improvise, use code blocks, or simplify.**
+**STRICT FORMAT — follow exactly. Do NOT improvise or simplify.**
 
-1. **Data collection.** Read `~/agent-fleet/registry.md`. Collect data for **ALL** registered projects (P1-P3 by default, P1-P5 with `lsd all`), regardless of whether they exist on the current machine:
-   - **Open tasks**: If path exists locally, grep `^- \[ \]` from `<path>/backlog.md`, count by `[P1]`-`[P5]` tag (untagged = P3). If path doesn't exist, show `—`.
-   - **Deadlines**: scan backlog Open section for date patterns, "deadline", "due", "by March", "days" etc.
-   - **Disk size**: `du -sh <path>`. If path doesn't exist on this machine → show `—` (em dash). This is how the user sees which projects are local vs remote-only.
+1. **Data collection — cache-first.** Read `~/agent-fleet/cross-project/dashboard-cache.md`. This file contains pre-computed task counts, disk sizes, and deadlines for all projects. It is updated by:
+   - **Session shutdown** — each project updates its own row when shutting down
+   - **`lsd refresh`** — runs `bash ~/agent-fleet/setup/scripts/lsd-refresh.sh` to do a full scan of all local backlogs and disk sizes
 
-2. **Display format.** Render as a **markdown table** (not a code block, not monospace art). Group rows by priority tier using a tier header row (merged across columns). Sub-projects indent with `+- ` prefix in the Name column. Number every top-level project sequentially.
+   Show P1-P3 by default, P1-P5 with `lsd all`. Do NOT scan backlogs or run `du` — trust the cache. If the cache is missing, run `lsd-refresh.sh` once.
 
-   **Exact table structure — 6 columns:**
+2. **Display format — SEPARATE TABLE PER PRIORITY TIER.** Each tier gets its own box-drawing table with a tier header. This is the key visual structure — do NOT merge tiers into one big table.
 
-   | # | Name | Path | Type | Tasks | Size |
-   |---|------|------|------|-------|------|
+   **Box-drawing tables are preferred.** Use Unicode box-drawing characters. Each tier rendered as a standalone table.
 
-   **Tier header rows** span the table as a bold label in the Name column, other cells empty:
+   **Column structure — 5 columns per table:**
 
-   | | **[P1] CRITICAL** | | | | |
+   ```
+   ┌────┬──────────────────┬──────────────┬──────────────────────────────────────┬──────┐
+   │  # │ Name             │ Type         │ Tasks                                │ Size │
+   ├────┼──────────────────┼──────────────┼──────────────────────────────────────┼──────┤
+   │  1 │ my-project       │ code (p)     │ 3P1 1P2 4P3 — Fix auth; Deploy      │ 1.2G │
+   │    │  +- sub-proj     │ library      │ 1P2                                  │ 340M │
+   │  2 │ config-repo      │ meta/config  │ 2P2 1P3                              │   5M │
+   └────┴──────────────────┴──────────────┴──────────────────────────────────────┴──────┘
+   ```
 
-   **Sub-projects** use `+- ` prefix, no number:
+   **Tier headers** — bold text above each table: `**[P1] CRITICAL**`, `**[P2] ACTIVE**`, `**[P3] ONGOING**`
 
-   | | +- sub-project | ~/sub-project | library | 2 open | 128K |
+   **Path column removed** — paths are predictable (`~/project-name`), removing them saves width for the Tasks column.
+
+   **Sub-projects** indent with `+- ` prefix in the Name column, no number.
 
    **Task counts** use compact format: `3P1 1P2 4P3` (only show priorities that have items). If no backlog or not local: `—`.
+
+   **P1 task names:** When a project has P1 tasks, show their names in the Tasks column after the counts: `2P1 1P2 — Fix auth bug; Deploy hotfix`. The cache has a `P1Names` column (pipe-separated). Render as semicolon-separated after an em dash.
+
+   **Last completed item:** When a project has no open tasks (Tasks = `—`) but has a backlog with completed items, show the most recent one in italics in the Tasks column: `*Shipped v3.0*`. The cache has a `LastDone` column. Only show when Tasks would otherwise be `—`.
 
    **Type indicators** append in parentheses: `(d)` = dual-push, `(p)` = public+private pair.
 
    **Deadline flags**: append `!!` + description to the Size column: `544K !! Mar 15`.
 
-   **Reference rendering** (example with generic data — follow this structure exactly):
+   **Color note:** ANSI colors cannot render in Claude Code chat output (markdown renderer strips them). Box-drawing and bold text are the available visual tools.
 
-   | # | Name | Path | Type | Tasks | Size |
-   |--:|------|------|------|-------|-----:|
-   | | **[P1] CRITICAL** | | | | |
-   | 1 | my-project | ~/my-project | code (p) | 3P1 1P2 4P3 | 1.2G |
-   | | +- sub-proj | ~/sub-proj | library | 1P2 | 340M |
-   | 2 | config-repo | ~/agent-fleet | meta/config | 2P2 1P3 | 5M |
-   | | **[P2] ACTIVE** | | | | |
-   | 3 | another-proj | ~/another-proj | code | 5P2 3P3 | 2.1G |
-   | 4 | remote-proj | ~/remote-proj | code (d) | — | — |
-   | | **[P3] ONGOING** | | | | |
-   | 5 | side-project | ~/side-project | code | 1P3 | 45M |
-
-   After the table: `+ N paused/dormant (lsd all)` if P4-P5 projects were omitted.
+   After the tables: `+ N paused/dormant (lsd all)` if P4-P5 projects were omitted.
 
 3. **Actions.** After the table, show:
 
-   `switch <N>` Open project in new tab | `details <N>` Full project info | `new` Create new project | `all` Show P4-P5 too
+   `switch <N>` Open project in new tab | `details <N>` Full project info | `new` Create new project | `all` Show P4-P5 too | `refresh` Re-scan all backlogs and disk sizes
 
    - **switch**: archive current session-context.md, open new terminal tab in that project's directory (platform-aware: Konsole D-Bus on KDE, tmux on VPS, wt.exe on WSL)
    - **details**: show full info including machines, GitHub remotes, agents, multi-repo setup
    - **new**: follow project-setup.md
    - **all**: re-display including P4-P5 projects
+   - **refresh**: run `bash ~/agent-fleet/setup/scripts/lsd-refresh.sh`, then re-display
 
 **Session shutdown checklist — MANDATORY.** When the user says "prepare for shutdown", "exit", "auto-compact restart", `cls`, `end`, or anything suggesting session end → run ALL 7 steps from `~/.claude/foundation/session-protocol.md` Section "Session Shutdown Checklist", without asking. That file is the canonical, detailed checklist. Quick summary:
 
-1. Update `session-context.md` with final state and recovery instructions
+1. Update `session-context.md` with final state and recovery instructions + update this project's row in `~/agent-fleet/cross-project/dashboard-cache.md`
 2. Run `bash ~/agent-fleet/setup/scripts/rotate-session.sh` + update `docs/decisions.md` if needed
 3. Drop cross-project inbox tasks if this session affects other projects
 4. Update shared strategy files you touched (shutdown boundary exception)
