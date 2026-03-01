@@ -92,7 +92,7 @@ log_info() {
     else
         echo -e "${COLOR_GREEN}[INFO]${COLOR_RESET} ${msg}"
     fi
-    [[ -n "${LOG_FILE}" ]] && { _strip_ansi "[INFO] $(_timestamp) ${msg}" >> "${LOG_FILE}" 2>/dev/null || true; }
+    [[ -n "${LOG_FILE}" ]] && { _strip_ansi "[INFO] $(_timestamp) ${msg}" >> "${LOG_FILE}" 2>/dev/null || true; } || true
 }
 
 # Log warning message (yellow)
@@ -103,7 +103,7 @@ log_warn() {
     else
         echo -e "${COLOR_YELLOW}[WARN]${COLOR_RESET} ${msg}" >&2
     fi
-    [[ -n "${LOG_FILE}" ]] && { _strip_ansi "[WARN] $(_timestamp) ${msg}" >> "${LOG_FILE}" 2>/dev/null || true; }
+    [[ -n "${LOG_FILE}" ]] && { _strip_ansi "[WARN] $(_timestamp) ${msg}" >> "${LOG_FILE}" 2>/dev/null || true; } || true
 }
 
 # Log error message (red)
@@ -114,7 +114,7 @@ log_error() {
     else
         echo -e "${COLOR_RED}[ERROR]${COLOR_RESET} ${msg}" >&2
     fi
-    [[ -n "${LOG_FILE}" ]] && { _strip_ansi "[ERROR] $(_timestamp) ${msg}" >> "${LOG_FILE}" 2>/dev/null || true; }
+    [[ -n "${LOG_FILE}" ]] && { _strip_ansi "[ERROR] $(_timestamp) ${msg}" >> "${LOG_FILE}" 2>/dev/null || true; } || true
 }
 
 # Log success message (green, bold)
@@ -125,7 +125,7 @@ log_success() {
     else
         echo -e "${COLOR_GREEN}${COLOR_BOLD}[SUCCESS]${COLOR_RESET} ${msg}"
     fi
-    [[ -n "${LOG_FILE}" ]] && { _strip_ansi "[SUCCESS] $(_timestamp) ${msg}" >> "${LOG_FILE}" 2>/dev/null || true; }
+    [[ -n "${LOG_FILE}" ]] && { _strip_ansi "[SUCCESS] $(_timestamp) ${msg}" >> "${LOG_FILE}" 2>/dev/null || true; } || true
 }
 
 # Print numbered step header
@@ -140,8 +140,8 @@ log_step() {
     else
         echo -e "${COLOR_BLUE}${COLOR_BOLD}${header}${COLOR_RESET}"
     fi
-    [[ -n "${LOG_FILE}" ]] && echo "" >> "${LOG_FILE}"
-    [[ -n "${LOG_FILE}" ]] && echo "${header}" >> "${LOG_FILE}"
+    [[ -n "${LOG_FILE}" ]] && echo "" >> "${LOG_FILE}" || true
+    [[ -n "${LOG_FILE}" ]] && echo "${header}" >> "${LOG_FILE}" || true
 }
 
 # ============================================================================
@@ -152,7 +152,7 @@ log_step() {
 run_cmd() {
     if [[ "${DRY_RUN}" == "true" ]]; then
         echo -e "${COLOR_YELLOW}[DRY RUN]${COLOR_RESET} Would execute: $*"
-        [[ -n "${LOG_FILE}" ]] && echo "[DRY RUN] Would execute: $*" >> "${LOG_FILE}"
+        [[ -n "${LOG_FILE}" ]] && echo "[DRY RUN] Would execute: $*" >> "${LOG_FILE}" || true
         return 0
     else
         if [[ "${VERBOSE}" == "true" ]]; then
@@ -169,7 +169,7 @@ run_write() {
 
     if [[ "${DRY_RUN}" == "true" ]]; then
         echo -e "${COLOR_YELLOW}[DRY RUN]${COLOR_RESET} Would write: ${path}"
-        [[ -n "${LOG_FILE}" ]] && echo "[DRY RUN] Would write: ${path}" >> "${LOG_FILE}"
+        [[ -n "${LOG_FILE}" ]] && echo "[DRY RUN] Would write: ${path}" >> "${LOG_FILE}" || true
         return 0
     else
         printf '%s\n' "${content}" > "${path}"

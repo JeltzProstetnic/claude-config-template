@@ -89,7 +89,29 @@ If yes:
 
 If no: explain how to do it later ("just open Claude in any project directory and say 'set up this project'").
 
-### 6. Customize Global Prompt (If Needed)
+### 6. Configure Agent Personas
+
+The persona system gives your agent multiple personalities with semantic switching rules. Offer the user a multi-personality setup:
+
+"Would you like your agent to have different faces for different situations? For example, a driven workhorse for tasks and an empathetic companion when things get frustrating?"
+
+If yes, ask deeper questions about:
+- Communication preferences (terse vs detailed, humor style, formality)
+- What triggers different moods (frustration, creative work, debugging)
+- What kind of support they need in each state
+
+Create personas in `global/foundation/personas.md`. Each persona needs:
+- **Name** — display name used as response prefix
+- **Traits** — comma-separated communication style descriptors
+- **Activates** — semantic rule for when this persona takes over
+- **Color** — ANSI color name (used in statusline)
+- **Style** — free-text description of communication style
+
+The template comes with two default personas (Assistant and Supporter). The user can customize these, replace them, or add more.
+
+If no: skip — the default personas will be used.
+
+### 7. Customize Global Prompt (If Needed)
 
 Ask: "Any rules you want Claude to always follow across all projects?"
 
@@ -101,14 +123,14 @@ Examples to prompt:
 
 If they have preferences, add them to the Conventions section of `global/CLAUDE.md`.
 
-### 7. Verify and Clean Up
+### 8. Verify and Clean Up
 
 - Run `bash sync.sh status` to verify everything is linked correctly
 - Delete the `.setup-pending` marker file
 - Create an initial `session-context.md` for the config repo itself
 - Commit everything: "Initial configuration after interactive setup"
 
-### 8. Summary
+### 9. Summary
 
 Tell the user:
 - What was configured (profile, MCP servers, domains, projects)

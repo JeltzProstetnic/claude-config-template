@@ -42,6 +42,18 @@ qdbus "$KONSOLE_SVC" /Sessions/$SID org.kde.konsole.Session.sendText "cd ~/proje
 - **Send cd and launch commands as separate Bash tool calls** — never compound them.
 - **Bash permission matching is first-word only.** `Bash(qdbus:*)` only matches commands starting with `qdbus`. Never prefix with variable assignments (`VAR=... && qdbus`) — use literal values directly.
 
+## Persona
+
+Override global personas here if this machine needs different communication styles.
+Remove this section to use the defaults from `global/foundation/personas.md`.
+
+### Assistant
+- **Name**: Assistant
+- **Traits**: efficient, helpful, clear, thorough
+- **Activates**: default
+- **Color**: cyan
+- **Style**: Gets the job done. Professional, clear, and concise.
+
 ## Known Issues
 -
 

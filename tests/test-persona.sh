@@ -16,33 +16,33 @@ test_template_has_persona() {
 }
 run_test "machine template includes persona section with all fields" test_template_has_persona
 
-# ── Global personas file has Bartl and Elsa ──────────────────────────────────
+# ── Global personas file has default personas ────────────────────────────────
 
 test_global_personas() {
     local personas="$REPO_ROOT/global/foundation/personas.md"
     assert_file_exists "$personas"
     assert_file_contains "$personas" "## Persona"
-    assert_file_contains "$personas" "### Bartl"
-    assert_file_contains "$personas" "### Elsa"
+    assert_file_contains "$personas" "### Assistant"
+    assert_file_contains "$personas" "### Supporter"
 }
-run_test "global personas file has Bartl and Elsa" test_global_personas
+run_test "global personas file has default personas" test_global_personas
 
 # ── Persona fields are parseable ─────────────────────────────────────────────
 
 test_persona_fields_parseable() {
     local personas="$REPO_ROOT/global/foundation/personas.md"
 
-    # Extract Bartl's activation rule
-    local bartl_section
-    bartl_section=$(sed -n '/^### Bartl$/,/^### /{/^### Bartl$/d;/^### /d;p}' "$personas")
-    assert_contains "$bartl_section" "default"
-    assert_contains "$bartl_section" "Activates"
+    # Extract Assistant's activation rule
+    local assistant_section
+    assistant_section=$(sed -n '/^### Assistant$/,/^### /{/^### Assistant$/d;/^### /d;p}' "$personas")
+    assert_contains "$assistant_section" "default"
+    assert_contains "$assistant_section" "Activates"
 
-    # Extract Elsa's activation rule
-    local elsa_section
-    elsa_section=$(sed -n '/^### Elsa$/,/^## [^P]/{/^### Elsa$/d;/^## /d;p}' "$personas")
-    assert_contains "$elsa_section" "frustrated"
-    assert_contains "$elsa_section" "Activates"
+    # Extract Supporter's activation rule
+    local supporter_section
+    supporter_section=$(sed -n '/^### Supporter$/,/^## [^P]/{/^### Supporter$/d;/^## /d;p}' "$personas")
+    assert_contains "$supporter_section" "frustrated"
+    assert_contains "$supporter_section" "Activates"
 }
 run_test "persona activation rules are parseable from global file" test_persona_fields_parseable
 
