@@ -2,8 +2,8 @@
 
 ## Open
 
-- [ ] [P2] **Template testing + UX**: Test `setup.sh` end-to-end on a clean machine. Implement interactive mclaude-driven refinement after basic setup.
-- [ ] [P3] **HTTPS to SSH**: Template was cloned via HTTPS — pushes need token/SSH. Set up SSH key or run vault deploy.
+- [ ] [P2] `AFT-01` **Template testing + UX**: Test `setup.sh` end-to-end on a clean machine. Implement interactive mclaude-driven refinement after basic setup.
+- [ ] [P3] `AFT-02` **HTTPS to SSH**: Template was cloned via HTTPS — pushes need token/SSH. Set up SSH key or run vault deploy.
 
 ## Done
 

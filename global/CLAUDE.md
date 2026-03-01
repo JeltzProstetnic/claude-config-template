@@ -154,7 +154,7 @@ If the user says "always do X" or "remember to do Y" → that's a rule → `CLAU
 
 ## Open
 
-- [ ] [P1] **Task title**: Description
+- [ ] [P1] `PRJ-01` **Task title**: Description
 
 ## Done
 
@@ -164,11 +164,13 @@ If the user says "always do X" or "remember to do Y" → that's a rule → `CLAU
 Older completed items: `docs/backlog-archive.md`
 ```
 
+**Task IDs:** Every open task gets a stable ID: `PRJ-NN` where `PRJ` is a short project prefix (2-4 uppercase letters) and `NN` is a zero-padded sequential number. IDs are unique within a project — never reused, even after completion. The user can reference tasks by ID across sessions. Pick a 2-4 letter prefix when creating a project backlog and use it consistently.
+
 **Keep backlogs lean:** Only the last session's Done section stays in `backlog.md`. Older completed items move to `docs/backlog-archive.md` (append-only, oldest first). This prevents backlogs from growing into multi-hundred-line token sinks.
 
 **Project prioritization:** Registry has a `Priority` column (P1–P5). Backlog tasks carry a priority tag.
 - **Project priority** (in `registry.md`): P1 = critical/daily, P2 = active/weekly, P3 = ongoing/as-needed, P4 = paused, P5 = dormant
-- **Task priority** (in backlogs): prefix task line with `[P1]`–`[P5]`, e.g. `- [ ] [P1] Fix deployment bug`. Untagged tasks default to P3.
+- **Task priority** (in backlogs): prefix task line with `[P1]`–`[P5]`, e.g. `- [ ] [P1] `PRJ-01` **Fix deployment bug**: Description`. Untagged tasks default to P3.
 - **Cross-project ranking**: sort by project priority first, then task priority within each project. A P2 task in a P1 project outranks a P1 task in a P3 project.
 - **Open section**: flat list sorted by priority (P1 first), no subsections. Keep it scannable.
 - **Done section**: group by date, most recent first. Move tasks here when completed — don't delete them.
