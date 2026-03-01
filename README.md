@@ -266,7 +266,7 @@ Add your own: copy `global/domains/_template/`, edit it, reference it from your 
 
 ### Test Suite
 
-The system includes a test suite (`tests/run.sh`) covering session rotation, git sync, config health checks, dashboard refresh, and more. TDD is enforced as a development rule — all new code and features require corresponding tests.
+The system includes a test suite (`tests/run.sh`) with 125 tests across 10 suites, covering session rotation, git sync, config health checks, dashboard refresh, filtered push, and more. TDD is enforced as a development rule — all new code and features require corresponding tests.
 
 ### Skill Collections (optional)
 

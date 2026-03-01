@@ -67,7 +67,8 @@
       "Bash(stat:*)",
       "Bash(date:*)",
       "Bash(tmux:*)",
-      "Bash(nvm:*)"
+      "Bash(nvm:*)",
+      "Bash(printf:*)"
     ]
   },
   "hooks": {
