@@ -213,7 +213,9 @@ When the user types one of these keywords (alone, case-insensitive), execute the
 
    **Path column removed** — paths are predictable (`~/project-name`), removing them saves width for the Tasks column.
 
-   **Sub-projects** render directly under their declared parent (per the Parent column in the cache), using tree-drawing characters: `├─ ` for middle children, `└─ ` for the last child. No number.
+   **Sub-projects** render directly under their declared parent (per the Parent column in the cache), indented with `+- ` prefix (uniform for all children — no distinction between middle/last). No number.
+
+   **Size column alignment:** Right-align Size values within a fixed-width column (minimum 6 chars). When the Tasks column has long content (P1 names, etc.), do NOT let it push the Size column out of alignment. Set each column to a fixed width based on the longest value in that column for the current tier, then pad all cells to match.
 
    **Task counts** use compact format: `3P1 1P2 4P3` (only show priorities that have items). If no backlog or not local: `—`.
 
