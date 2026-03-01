@@ -22,6 +22,21 @@
 
 **Key insight:** `settings.local.json` should ONLY contain project-specific MCP server configuration (`enabledMcpjsonServers`, `enableAllProjectMcpServers`). It should NEVER have a `permissions` block unless you intentionally want to restrict that project's permissions below the global baseline.
 
+## First-Word Matching Rule
+
+**Root cause:** Claude Code's `Bash(command:*)` permission patterns match against the **first word** of the command string only. A command like `KONSOLE_SVC="value" && qdbus ...` starts with `KONSOLE_SVC`, not `qdbus` — so `Bash(qdbus:*)` does NOT match.
+
+**Common mistakes:**
+| Command pattern | First word | Matches `Bash(qdbus:*)`? |
+|----------------|-----------|--------------------------|
+| `qdbus org.kde.konsole-123 ...` | qdbus | Yes |
+| `KONSOLE_SVC="..." && qdbus ...` | KONSOLE_SVC | **No** |
+| `sleep 2 && qdbus ...` | sleep | **No** |
+
+**Fix:** Always start Bash tool commands with the actual command, never with variable assignments or delays. Use separate tool calls instead of chaining with `&&`.
+
+**Adding missing commands:** If a command is frequently used but not in the global permissions, add `Bash(command:*)` to `settings.json` — don't rely on project-level approvals (they cause the settings.local.json override problem described above).
+
 ## Compound Command Permission Problem
 
 **Root cause:** Bash permissions use prefix matching. `Bash(cd:*)` and `Bash(git:*)` individually don't cover compound commands like `cd ~/project && git status`. The compound command is evaluated as a whole string, and `cd ~/project && git status` starts with `cd` but Claude Code's security layer flags it as a compound command with `&&` — triggering the "bare repository attacks" safety warning regardless of individual permissions.

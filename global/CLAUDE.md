@@ -61,6 +61,7 @@ If `CLAUDE.local.md` is missing, fall back to reading `~/.claude/machines/<machi
 ## Development Rules
 
 - **No compound `cd` commands:** NEVER use `cd <dir> && <command>` in Bash tool calls. Claude Code flags compound `cd` commands as security risks ("bare repository attacks"), causing permission prompts that pollute `settings.local.json`. Instead: use `git -C <path>` for git commands, absolute paths for everything else.
+- **Bash permissions match first word only:** `Bash(qdbus:*)` only matches commands starting with `qdbus`. NEVER prefix Bash commands with variable assignments (`VAR=value && command`) or delays (`sleep N && command`). Use literal values and separate tool calls instead. See `~/.claude/knowledge/claude-code-permissions.md` for details.
 - **Know your gitignore:** Before `git add`, verify the file isn't gitignored. `.claude/settings.local.json` and `secrets/vault.json` are gitignored. Don't waste tool calls trying to stage them.
 - **Auto-sync awareness:** The SessionEnd hook runs `sync.sh collect` which commits pending changes. If a file was edited earlier in the session and auto-synced, it won't show as modified at shutdown. Check `git log --oneline -1 -- <file>` before chasing phantom diffs.
 - **Git commit messages — no `$()`:** NEVER use `git commit -m "$(cat <<'EOF'...)"` or any `$()` substitution in commit commands. Claude Code flags `$()` as a security risk, triggering permission prompts that interrupt shutdown and startup flows. Instead: write the message to a temp file, then commit with `-F`:
