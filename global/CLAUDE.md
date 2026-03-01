@@ -213,7 +213,7 @@ When the user types one of these keywords (alone, case-insensitive), execute the
 
    **Path column removed** — paths are predictable (`~/project-name`), removing them saves width for the Tasks column.
 
-   **Sub-projects** indent with `+- ` prefix in the Name column, no number.
+   **Sub-projects** render directly under their declared parent (per the Parent column in the cache), using tree-drawing characters: `├─ ` for middle children, `└─ ` for the last child. No number.
 
    **Task counts** use compact format: `3P1 1P2 4P3` (only show priorities that have items). If no backlog or not local: `—`.
 
