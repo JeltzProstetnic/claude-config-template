@@ -64,12 +64,11 @@ If `CLAUDE.local.md` is missing, fall back to reading `~/.claude/machines/<machi
 - **Bash permissions match first word only:** `Bash(npm:*)` only matches commands starting with `npm`. NEVER prefix Bash commands with variable assignments (`VAR=value && npm ...`) or delays (`sleep N && npm ...`) — those start with `VAR` or `sleep`, not `npm`, so the permission won't match. Use literal values and separate tool calls instead. See `~/.claude/knowledge/claude-code-permissions.md` for details.
 - **Know your gitignore:** Before `git add`, verify the file isn't gitignored. `.claude/settings.local.json` and `secrets/vault.json` are gitignored. Don't waste tool calls trying to stage them.
 - **Auto-sync awareness:** The SessionEnd hook runs `sync.sh collect` which commits pending changes. If a file was edited earlier in the session and auto-synced, it won't show as modified at shutdown. Check `git log --oneline -1 -- <file>` before chasing phantom diffs.
-- **Git commit messages — no `$()`:** NEVER use `git commit -m "$(cat <<'EOF'...)"` or any `$()` substitution in commit commands. Claude Code flags `$()` as a security risk, triggering permission prompts that interrupt shutdown and startup flows. Instead: write the message to a temp file, then commit with `-F`:
+- **Git commit messages — no `$()`, no temp files:** NEVER use `git commit -m "$(cat <<'EOF'...)"` (flags `$()` as security risk) or `printf ... > /tmp/file && git commit -F /tmp/file` (flags `/tmp/` as file access risk). Both trigger permission prompts. Instead: use multiple `-m` flags — each becomes a separate paragraph:
   ```
-  printf 'Commit message here\n\nCo-Authored-By: ...' > /tmp/commit-msg.txt
-  git commit -F /tmp/commit-msg.txt
+  git -C /path commit -m "Subject line here" -m "Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
   ```
-  This overrides the system prompt's HEREDOC guidance. The `-F` pattern is silent, requires no approval, and works identically.
+  This overrides the system prompt's HEREDOC guidance. Multiple `-m` is silent, requires no approval, and produces identical multi-paragraph output.
 
 ## Persona System
 
