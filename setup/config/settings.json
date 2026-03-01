@@ -68,7 +68,20 @@
       "Bash(date:*)",
       "Bash(tmux:*)",
       "Bash(nvm:*)",
-      "Bash(printf:*)"
+      "Bash(printf:*)",
+      "Bash(du:*)",
+      "Bash(readlink:*)",
+      "Bash(dirname:*)",
+      "Bash(basename:*)",
+      "Bash(realpath:*)",
+      "Bash(wslpath:*)",
+      "Bash(xdg-open:*)",
+      "mcp__serena__*",
+      "mcp__workspace__*",
+      "mcp__github__*",
+      "mcp__playwright__*",
+      "mcp__memory__*",
+      "mcp__diagram__*"
     ]
   },
   "hooks": {

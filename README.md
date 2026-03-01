@@ -306,22 +306,21 @@ Add your own: copy `global/domains/_template/`, edit it, reference it from your 
 
 ### Test Suite
 
-125 tests across 10 suites:
+125 tests across 10 suites, run via `tests/run.sh`:
 
-| Suite | Covers |
-|-------|--------|
-| `test_session_rotation.sh` | Session archival and history rotation |
-| `test_git_sync.sh` | Config sync and conflict detection |
-| `test_config_check.sh` | Startup health validation |
-| `test_dashboard.sh` | Dashboard cache and rendering |
-| `test_filtered_push.sh` | Public remote filtered push |
-| `test_permissions.sh` | Permission cleanup |
-| `test_vault.sh` | Encrypted credential vault |
-| `test_setup.sh` | Setup script logic |
-| `test_hooks.sh` | SessionStart/End hooks |
-| `test_sync_status.sh` | Sync status reporting |
+| Suite | Tests | Covers |
+|-------|------:|--------|
+| harness | 13 | Test runner itself |
+| rotate-session | 19 | Session archival, history rotation, template parsing |
+| git-sync-check | 10 | Remote detection, fast-forward, divergence handling |
+| sync | 10 | Deploy, collect, symlinks, hook copying |
+| persona | 6 | Persona file parsing, switching logic |
+| lsd-refresh | 9 | Dashboard cache generation, backlog scanning |
+| statusline | 18 | Context meter, persona display, color coding |
+| config-check | 24 | Symlink validation, stale session detection, permission cleanup |
+| filtered-push | 16 | Dual-remote push, path exclusion, config parsing, safety checks |
 
-TDD is enforced as a development rule -- all new code requires corresponding tests.
+TDD is enforced -- the agent writes tests before implementation code.
 
 ### Skill Collections (optional)
 
