@@ -439,9 +439,11 @@ The exact percentage depends on how many MCP servers you configure and how large
 
 ## Troubleshooting
 
-**Claude doesn't see my MCP servers** — Restart Claude Code. MCP servers load at startup.
+**Claude doesn't see my MCP servers** — Two common causes: (1) Restart Claude Code — MCP servers load at startup. (2) Check `settings.local.json` in the project's `.claude/` directory — if it has `enabledMcpjsonServers`, that list acts as a **whitelist** filtering ALL servers (including global ones). Add the missing server name to the list, or remove the key entirely.
 
 **GitHub returns "Not Found" on private repos** — The env var must be `GITHUB_PERSONAL_ACCESS_TOKEN` (not `GITHUB_TOKEN`). Check `~/.mcp.json`.
+
+**Permission prompts every session** — If Claude keeps asking to approve basic commands (git, bash, etc.), check the project's `.claude/settings.local.json` for a `permissions` block. Project-level permissions **replace** (not extend) global permissions. Remove the `permissions` block entirely — the global `settings.json` has comprehensive auto-approvals.
 
 **Session state not persisting** — Make sure you're running Claude from a directory that has `session-context.md`, or from `~/agent-fleet/` itself.
 

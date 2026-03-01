@@ -122,6 +122,36 @@ if [ -d "$CONFIG_REPO/.git" ]; then
     fi
 fi
 
+# Check 10: Auto-remove stale permissions blocks from project settings.local.json
+# Project-level permissions blocks REPLACE global permissions, causing prompt storms.
+# They accumulate from "Always allow" clicks. The only safe fix is removing them.
+while IFS= read -r slj; do
+    [ -f "$slj" ] || continue
+    if grep -q '"permissions"' "$slj" 2>/dev/null; then
+        proj_dir=$(dirname "$(dirname "$slj")")
+        proj_name=$(basename "$proj_dir")
+        if command -v python3 &>/dev/null; then
+            python3 -c "
+import json, sys
+f = sys.argv[1]
+with open(f) as fh: d = json.load(fh)
+if 'permissions' in d:
+    del d['permissions']
+    with open(f, 'w') as fh: json.dump(d, fh, indent=2); fh.write('\n')
+" "$slj" 2>/dev/null && \
+            WARNINGS="${WARNINGS:+$WARNINGS | }Auto-removed stale permissions block from $proj_name/.claude/settings.local.json — project-level permissions override global settings. Use session-only approvals to prevent recurrence."
+        elif command -v node &>/dev/null; then
+            node -e "
+const fs = require('fs');
+const f = process.argv[1];
+const d = JSON.parse(fs.readFileSync(f, 'utf8'));
+if ('permissions' in d) { delete d.permissions; fs.writeFileSync(f, JSON.stringify(d, null, 2) + '\n'); }
+" "$slj" 2>/dev/null && \
+            WARNINGS="${WARNINGS:+$WARNINGS | }Auto-removed stale permissions block from $proj_name/.claude/settings.local.json — project-level permissions override global settings."
+        fi
+    fi
+done < <(find "$HOME" -maxdepth 3 -path '*/.claude/settings.local.json' -type f 2>/dev/null)
+
 # Output JSON if there are warnings or inbox items
 SYSTEM_MSG=""
 if [ -n "$WARNINGS" ]; then

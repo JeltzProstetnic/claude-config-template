@@ -32,6 +32,23 @@ When adding a new MCP server to the fleet, verify these BEFORE deploying to mach
 - **Does it work on all target platforms?** (SteamOS, WSL, VPS, Fedora)
 - **PATH requirements**: always set explicit PATH in `.mcp.json` env — don't rely on shell PATH inheritance
 
+## enabledMcpjsonServers — the silent killer
+
+When adding a new MCP server to `~/.mcp.json`, you MUST also add its name to `enabledMcpjsonServers` in EVERY project's `settings.local.json`. This list acts as a whitelist — unlisted servers silently fail to connect, even if perfectly configured.
+
+**The mclaude launcher should handle this automatically** (patching settings.local.json at startup). If it's not doing so, the launcher's patching logic needs fixing. When manually deploying, always update:
+1. `~/.mcp.json` — add server definition
+2. Every `<project>/.claude/settings.local.json` — add server name to `enabledMcpjsonServers`
+
+**Deployment script (`configure-claude.sh`) MUST:**
+- Set `enabledMcpjsonServers` to include ALL servers defined in `.mcp.json`
+- Set `enableAllProjectMcpServers: true`
+- NEVER include a `permissions` block (auto-clean hook will remove it anyway)
+
+## Auto-clean: permissions contamination (config-check.sh Check 10)
+
+Claude Code's "Always allow" button writes permission entries to `settings.local.json`. These REPLACE global permissions, causing prompt storms. The SessionStart hook `config-check.sh` Check 10 auto-removes any `permissions` block from all project `settings.local.json` files. See `~/.claude/knowledge/claude-code-permissions.md` for full details.
+
 ## Known server-specific notes
 
 ### Serena (code navigation)
@@ -49,6 +66,9 @@ When adding a new MCP server to the fleet, verify these BEFORE deploying to mach
 ### GitHub MCP
 - Auth: `GITHUB_PERSONAL_ACCESS_TOKEN` env var
 - Multi-org: separate server entries for different PATs (e.g., `github` vs `github_ivoclar`)
+- **DEPRECATED:** `@modelcontextprotocol/server-github` (npm) still works but is no longer maintained
+- **Replacement:** `github/github-mcp-server` (Go-based) — requires Docker or Go. Migration pending.
+- The old npx server emits deprecation warnings but functions correctly (26 tools)
 
 ### Twitter MCP
 - Auth: 4 env vars (API_KEY, API_SECRET, ACCESS_TOKEN, ACCESS_SECRET)

@@ -202,10 +202,14 @@ These can be added to `.mcp.json` if needed:
   - `enableAllProjectMcpServers: true`
   - `enabledMcpjsonServers: [...]` (list of server names)
 
+- **CRITICAL: `enabledMcpjsonServers` is a WHITELIST that filters ALL servers** — including servers from `~/.mcp.json` (global). If a server exists in `~/.mcp.json` but is NOT listed in the project's `enabledMcpjsonServers`, it will silently fail to connect. The server process may even start, but the MCP handshake never completes. Symptom: `mcp__servername__*` tools simply don't appear. Fix: add the server name to `enabledMcpjsonServers` in every project's `settings.local.json`.
+
+- **CRITICAL: `permissions` blocks in `settings.local.json` REPLACE (not extend) global permissions.** Claude Code's "Always allow" button pollutes this file with random one-off approvals, destroying the comprehensive global permission set. The SessionStart hook `config-check.sh` (Check 10) auto-removes these blocks. See `knowledge/claude-code-permissions.md`.
+
 ### Adding a new server
 
 1. Add the server definition to `~/.mcp.json` under `mcpServers`
-2. Add the server name to `enabledMcpjsonServers` in `settings.local.json`
+2. Add the server name to `enabledMcpjsonServers` in **EVERY** project's `settings.local.json`
 3. Restart Claude Code (MCP servers cache env vars at startup)
 
 ### Project-level overrides
