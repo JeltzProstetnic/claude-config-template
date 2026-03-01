@@ -2,6 +2,8 @@
 
 These personas are active on all machines unless a machine file provides its own `## Persona` section.
 
+Customize these to match your communication preferences. During first-run refinement, the agent will offer to help you create personalized personas.
+
 ## Persona
 
 ### Assistant

@@ -86,13 +86,39 @@ cmd_setup() {
     # Project-specific rules
     deploy_project_rules
 
-    # Check for CLAUDE.local.md (machine-specific @import)
+    # Create CLAUDE.local.md if missing (machine-specific @import)
     if [[ ! -f "$HOME/CLAUDE.local.md" ]]; then
-        log_warn "No ~/CLAUDE.local.md found. Create one for machine-specific loading:"
-        log_warn "  echo '@~/.claude/machines/<machine>.md' > ~/CLAUDE.local.md"
+        # Auto-detect machine file from hostname
+        # Customize this case statement for your machines:
+        local machine_file=""
+        local hn
+        hn=$(get_hostname)
+        case "$hn" in
+            # myserver*)        machine_file="server.md" ;;
+            # DESKTOP-*|MY-PC*) machine_file="wsl.md" ;;
+            # steamdeck*|jupiter*) machine_file="steamdeck.md" ;;
+            # fedora*)
+            #     if [[ "$(whoami)" == "work-user" ]]; then
+            #         machine_file="office.md"
+            #     else
+            #         machine_file="home.md"
+            #     fi
+            #     ;;
+            *) ;;  # No auto-detection configured — will prompt manually
+        esac
+        if [[ -n "$machine_file" && -f "$CLAUDE_HOME/machines/$machine_file" ]]; then
+            echo "@~/.claude/machines/$machine_file" > "$HOME/CLAUDE.local.md"
+            log_info "Created CLAUDE.local.md → machines/$machine_file"
+        else
+            log_warn "Could not auto-detect machine — create ~/CLAUDE.local.md manually"
+            log_warn "  echo '@~/.claude/machines/<machine>.md' > ~/CLAUDE.local.md"
+        fi
     else
         log_info "CLAUDE.local.md already exists"
     fi
+
+    # Clean unwanted marketplace plugins
+    clean_marketplace_plugins
 
     log_info "Setup complete. Live locations now symlinked to repo."
     log_warn "Restart Claude Code for changes to take effect."
@@ -129,8 +155,18 @@ cmd_deploy() {
     # Project-specific rules
     deploy_project_rules
 
+    # Statusline script
+    if [ -f "$SCRIPT_DIR/setup/config/statusline.sh" ]; then
+        cp "$SCRIPT_DIR/setup/config/statusline.sh" "$CLAUDE_HOME/statusline.sh"
+        chmod +x "$CLAUDE_HOME/statusline.sh"
+        log_info "Deployed: statusline.sh → $CLAUDE_HOME/"
+    fi
+
     # Apply project folder icons (platform-appropriate)
     apply_project_icons
+
+    # Clean unwanted marketplace plugins (auto-installed by Claude Code)
+    clean_marketplace_plugins
 
     # Check live settings.json for missing critical blocks
     check_settings_health
@@ -200,6 +236,13 @@ apply_project_icons() {
         # KDE — apply .directory files
         log_info "Applying project folder icons (KDE Dolphin)..."
         bash "$icon_script" apply-kde 2>/dev/null || log_warn "KDE icon application failed"
+    fi
+}
+
+clean_marketplace_plugins() {
+    local script="$SCRIPT_DIR/setup/scripts/clean-marketplace-plugins.sh"
+    if [ -f "$script" ]; then
+        bash "$script" 2>/dev/null || log_warn "Marketplace plugin cleanup returned non-zero"
     fi
 }
 

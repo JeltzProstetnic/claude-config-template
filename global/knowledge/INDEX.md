@@ -13,9 +13,6 @@ Conditionally loaded files containing operational knowledge for specific tools a
 
 | File | Trigger | Content |
 |------|---------|---------|
-| `jira-atlassian.md` | Using Atlassian/Jira MCP tools | v2.1.0 bugs, working/broken tools, patch procedure |
-| `dev-browser-ops.md` | Using dev-browser skill or browser automation | Startup, Chromium drift fix, session persistence |
-| `age-encryption.md` | Encryption tasks involving age/pyrage | age CLI TTY limitation, pyrage alternative, passphrase handling |
 | `mcp-deployment.md` | Adding new MCP server or debugging MCP server config | Pre-deployment checklist, port conflicts, onboarding suppression, per-server notes |
 | `plan-mode-issues.md` | Plan mode hangs, freezes, or unresponsive UI | Root cause (MCP deadlock), workarounds, diagnostic data |
 | `claude-code-permissions.md` | Permission prompts, settings.local.json issues | Override problem, fix procedure, prevention |

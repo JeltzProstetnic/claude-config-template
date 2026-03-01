@@ -10,6 +10,8 @@ Config repo: `~/agent-fleet/`
 
 Machine-specific knowledge is auto-loaded via `~/CLAUDE.local.md` (each machine has its own, not synced). Read `/etc/hostname` at startup using the Read tool (not Bash — avoids permission prompts; portable across all platforms including SteamOS where `hostname` binary may not exist) and state where you are in your first response.
 
+If hostname doesn't match any pattern in your machine table, state the hostname + user and ask.
+
 If `CLAUDE.local.md` is missing, fall back to reading `~/.claude/machines/<machine>.md` manually.
 
 ## Session Start — Loading Protocol
@@ -19,6 +21,7 @@ If `CLAUDE.local.md` is missing, fall back to reading `~/.claude/machines/<machi
 **Auto-loaded via @import** (no action needed — loaded before you see this):
 - `user-profile.md` — who the user is
 - `session-protocol.md` — session context persistence rules
+- `personas.md` — default personas (machine files can override)
 - Machine file — via `CLAUDE.local.md` (machine-specific, not synced)
 
 **Manual steps — execute in order:**
@@ -43,10 +46,13 @@ If `CLAUDE.local.md` is missing, fall back to reading `~/.claude/machines/<machi
    - Subagent permission failures: `~/.claude/reference/permissions.md`
    - Cross-project coordination needed: `~/.claude/foundation/cross-project-sync.md`
    - CLI tool usage or uncertainty about installed software: `~/.claude/reference/system-tools.md`
-   - Tool-specific operational issues: `~/.claude/knowledge/<tool>.md` (check INDEX for available files)
    - Plan mode issues, hangs, or freezes: `~/.claude/knowledge/plan-mode-issues.md`
+   - Adding/debugging MCP servers: `~/.claude/knowledge/mcp-deployment.md`
    - Permission prompts, settings.local.json issues, tool approval problems: `~/.claude/knowledge/claude-code-permissions.md`
    - User types `lsd` (project dashboard): `~/.claude/reference/lsd-spec.md`
+   - Generating documents, PDFs, or delivering files: `~/.claude/reference/output-rules.md`
+   - Writing outside current project, cross-project sync, filtered push: `~/.claude/reference/cross-project-rules.md`
+   - Tool-specific operational issues: `~/.claude/knowledge/<tool>.md` (check INDEX for available files)
 
 6. **Check for project-specific knowledge**: `ls <project>/.claude/knowledge/` or `<project>/.claude/*.md`
 
@@ -56,14 +62,16 @@ If `CLAUDE.local.md` is missing, fall back to reading `~/.claude/machines/<machi
 
 - Foundation modules: `~/.claude/foundation/INDEX.md`
 - Domain catalog: `~/.claude/domains/INDEX.md`
-- **Project catalog: `~/agent-fleet/registry.md`** — read when user mentions other projects
+- **Full project catalog: `~/agent-fleet/registry.md`** — read on demand (project ops, `lsd`, or when user mentions other projects)
 
 ## Development Rules
 
+- **TDD only:** All new code and features MUST follow test-driven development. Write failing tests first, then implement to make them pass. No implementation code without a corresponding test. This applies to bash scripts, config logic, and any testable behavior.
 - **No compound `cd` commands:** NEVER use `cd <dir> && <command>` in Bash tool calls. Claude Code flags compound `cd` commands as security risks ("bare repository attacks"), causing permission prompts that pollute `settings.local.json`. Instead: use `git -C <path>` for git commands, absolute paths for everything else.
 - **Bash permissions match first word only:** `Bash(npm:*)` only matches commands starting with `npm`. NEVER prefix Bash commands with variable assignments (`VAR=value && npm ...`) or delays (`sleep N && npm ...`) — those start with `VAR` or `sleep`, not `npm`, so the permission won't match. Use literal values and separate tool calls instead. See `~/.claude/knowledge/claude-code-permissions.md` for details.
 - **Know your gitignore:** Before `git add`, verify the file isn't gitignored. `.claude/settings.local.json` and `secrets/vault.json` are gitignored. Don't waste tool calls trying to stage them.
 - **Auto-sync awareness:** The SessionEnd hook runs `sync.sh collect` which commits pending changes. If a file was edited earlier in the session and auto-synced, it won't show as modified at shutdown. Check `git log --oneline -1 -- <file>` before chasing phantom diffs.
+- **Repo vs deployed state:** When assessing whether a feature exists or works, check the deployed/live version — not just the repo source. `sync.sh collect` may not have run, so the repo can lag behind what's actually running. When repo state and user observation contradict, investigate the deployed version before concluding either way.
 - **Git commit messages — no `$()`, no temp files:** NEVER use `git commit -m "$(cat <<'EOF'...)"` (flags `$()` as security risk) or `printf ... > /tmp/file && git commit -F /tmp/file` (flags `/tmp/` as file access risk). Both trigger permission prompts. Instead: use multiple `-m` flags — each becomes a separate paragraph:
   ```
   git -C /path commit -m "Subject line here" -m "Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
@@ -77,6 +85,8 @@ Personas are **multiple named personalities** with semantic switching rules. The
 **Persona source (layered, first match wins):**
 1. **Machine file** (`~/.claude/machines/<machine>.md`) — if it has a `## Persona` section, use those personas exclusively (full override, not merge)
 2. **Global default** (`~/.claude/foundation/personas.md`) — used when the machine file has no `## Persona` section
+
+The user can define as many personas as they want. Switching rules are semantic — described in natural language, interpreted by Claude. Examples: "when the user is frustrated", "when discussing creative writing", "when doing code review", "after midnight", "when the user says 'switch to X'".
 
 **Persona format** (each persona is a `### Name` subsection under `## Persona`):
 
@@ -92,9 +102,10 @@ Personas are **multiple named personalities** with semantic switching rules. The
 - At session start, load personas from the machine file (if it has a `## Persona` section) or from the global file
 - The persona with `Activates: default` is active at session start
 - Prefix FIRST substantive response to each user message with the persona name in **bold markdown**: e.g., `**Assistant:**`
-- On persona switch, write the active persona name to `~/.claude/.active-persona` (one line, just the name). Write on session start (default persona) and on every switch.
-- Continuously evaluate switching rules against conversation context. Switch when a rule matches. **Stay in the switched persona until the triggering condition clearly ends.**
+- On persona switch, write the active persona name to `~/.claude/.active-persona` (one line, just the name, no trailing newline). The statusline reads this file and displays the persona name in its configured ANSI color. Write on session start (default persona) and on every switch. **Method:** First **Read** the file (even if it doesn't exist — the Read will return an error, which is fine), then use the **Write tool** to set the new value. The Read is mandatory because Write requires a prior Read. Do NOT use Bash/printf — that triggers permission prompts.
+- Continuously evaluate switching rules against conversation context. Switch when a rule matches. **Stay in the switched persona until the triggering condition clearly ends** — e.g., if user was frustrated, stay in the empathetic persona until their tone shifts back to neutral/task-focused. Don't snap back to default the moment frustration isn't explicitly stated. Err on the side of staying longer.
 - The user can always force a switch by saying "switch to [Name]" or just "[Name]"
+- Trait descriptors and Style text are FLAVORING, not rigid rules. Adapt to context. User profile takes precedence.
 - If no persona defined → respond normally (no prefix, no trait flavoring)
 
 **Onboarding:** During first-run refinement, offer a multi-personality setup — "Would you like your agent to have different personalities for different situations?" Store in `~/.claude/foundation/personas.md`. If the user wants device-specific personas, add a `## Persona` section to the relevant machine file.
@@ -126,26 +137,11 @@ Personas are **multiple named personalities** with semantic switching rules. The
 
 If the user says "always do X" or "remember to do Y" → that's a rule → `CLAUDE.md`. If it's global, route through cross-project inbox for agent-fleet integration. If project-scoped, write to the project's `CLAUDE.md` directly.
 
-**Output rule:** Any document, summary, or one-pager MUST be delivered as **PDF**, not markdown. The user does not read `.md` files. Write the `.md` as source, convert to PDF, open the PDF:
-- **Convert (preferred — weasyprint)**: `pandoc input.md -o input.html --standalone && weasyprint input.html output.pdf`
-- **Convert (fallback — xelatex, if installed)**: `pandoc input.md -o output.pdf --pdf-engine=xelatex -V geometry:margin=1.8cm -V mainfont="Liberation Sans" -V monofont="Liberation Mono" --highlight-style=tango`
-- **Before converting**: verify which engine is available (`which weasyprint xelatex`). Do NOT guess — check first.
-- **Avoid** Unicode box-drawing characters in code blocks (xelatex chokes) — use tables instead
-- **weasyprint HTML: BMP symbols only** — never use emoji codepoints (U+1F000+) in HTML for weasyprint. Emoji fonts aren't portable across machines. Use BMP Unicode symbols instead: `&#10004;` (checkmark), `&#9654;` (play), `&#9733;` (star), `&#9679;` (bullet). For colored indicators: `<span style="color:green">&#9679;</span>`.
-- **Open (WSL)**: `powershell.exe -Command "Start-Process '$(wslpath -w /absolute/path/to/file)'"` — ALWAYS use `wslpath -w` for path conversion
-- **Open (native Linux)**: `xdg-open output.pdf`
-- **Open (macOS)**: `open output.pdf`
-- **Detect environment**: if `/mnt/c/` exists → WSL, elif `uname` is Darwin → macOS, otherwise → native Linux
-- Short text (<10 words) can go inline. Anything longer → file + PDF + open.
-- **Exception — copy-paste content:** Tweet drafts, reply options, and anything the user needs to copy-paste goes in plain text (`.md` or `.txt`, not PDF). Use single-line paragraphs — NO hard line breaks mid-sentence. Wrapped lines look nice in terminal but break copy-paste.
+**Output rule:** Documents → PDF (not markdown). Copy-paste content → plain text files. Full rules: `~/.claude/reference/output-rules.md` (load when generating documents or delivering files).
 
 **MCP-first rule:** Always prefer MCP server tools over bash/CLI equivalents when available. GitHub MCP for repo/issue/PR operations (not `gh` CLI or `curl`), Google Workspace MCP for email/docs/calendar, Twitter MCP for tweets, Serena for code navigation in code projects. Only fall back to CLI when MCP genuinely can't do the operation (e.g., `git clone` to local filesystem), or when the MCP catalog documents a known limitation for that specific tool.
 
-**Subagent file delivery rule:** When a subagent (Task tool) produces a file (PDF, image, etc.), do NOT open it again in the parent context. **Check procedure — run BEFORE any file-open command:**
-1. Scan the subagent's returned output for open/delivery commands (`Start-Process`, `xdg-open`, `open`, or any shell command targeting the file).
-2. If found → file already delivered. Do nothing.
-3. If NOT found → subagent created but didn't open the file. Only then may the parent open it.
-4. When in doubt, do NOT open — a missing open is a minor annoyance, a duplicate open is a visible bug.
+**Subagent file delivery rule:** Never re-open files a subagent already delivered. Details in `~/.claude/reference/output-rules.md`.
 
 **Plain-language startup/shutdown messages:** Startup and shutdown status lines must be human-readable, not internal jargon. Say "Last session shut down correctly" not "clean template, properly rotated". Say "Last session may have ended unexpectedly — checking recovery notes" not "stale context found". Say "2 tasks waiting for other projects" not "inbox has 2 entries for non-current projects". These messages should make sense to any user, not just someone who knows the rotation/archival internals. The rest of the session can be as technical as the context requires.
 
@@ -177,26 +173,7 @@ Older completed items: `docs/backlog-archive.md`
 - **Open section**: flat list sorted by priority (P1 first), no subsections. Keep it scannable.
 - **Done section**: group by date, most recent first. Move tasks here when completed — don't delete them.
 
-**Cross-project boundary rule — HARD CONSTRAINT:** You may ONLY write to files inside your current working project. Writing to ANY file in another project's directory is FORBIDDEN — even if you know the path, even if it seems convenient, even for "shared" files in `~/agent-fleet/`. The ONLY legal way to affect another project is through the cross-project inbox. Violations of this rule cause silent data corruption and task loss.
-
-Path ownership (concrete mapping):
-- `~/agent-fleet/*` and `~/.claude/*` — owned by **agent-fleet** project
-- `~/<project>/*` — owned by that specific project (writable only when working in it)
-- `~/agent-fleet/cross-project/inbox.md` — writable from any project (always)
-- `~/agent-fleet/cross-project/*.md` strategy files — writable during shutdown only (see shutdown checklist)
-
-Reading files and executing scripts from any project is always permitted. Only writing/editing files outside your current working project is forbidden (except the inbox and shutdown strategy files listed above).
-
-**Cross-project inbox:** `~/agent-fleet/cross-project/inbox.md`
-- The inbox is the ONLY mechanism for cross-project communication
-- Tasks are per-project (one entry per project, not broadcasts)
-- Pick up YOUR project's tasks, delete them from inbox after integrating
-- To request changes in another project: write an inbox entry, NEVER edit their files directly
-- Format: `- [ ] **target-project-name**: what needs to happen`
-
-**Public/private sync direction rule:** When a project has both public and private repos, diffs between them are NOT always bugs. Before syncing, classify each diff: (1) **intentional personalization** — private has personal names/accounts/paths, public has generic placeholders → leave both as-is; (2) **structural improvement in private** that public should get → propagate after stripping personal details; (3) **public-only change** → backport to private. Never blindly sync private→public — that leaks personal data. Never blindly sync public→private — that overwrites intentional customizations.
-
-**Dual-remote push rule — HARD CONSTRAINT:** For projects with a filtered public remote (identified by `.push-filter.conf` in project root): NEVER `git pull`, `git fetch --merge`, or `git merge` from the public remote into the working branch. The public remote is **write-only** — it contains a filtered subset and merging it contaminates the working tree (deletes files that were intentionally excluded). Only pull/merge from the private remote. Push to public ONLY via `bash ~/agent-fleet/setup/scripts/filtered-push.sh`. If `git-sync-check.sh` runs in a dual-remote project, it must ONLY sync with the private remote, never the public one.
+**Cross-project boundary rule — HARD CONSTRAINT:** Only write files inside your current working project. Cross-project communication goes through the inbox (`~/agent-fleet/cross-project/inbox.md`). **Before writing outside your project, ALWAYS load `~/.claude/reference/cross-project-rules.md`** for path ownership, exceptions, and sync direction rules.
 
 **Session context:** Maintain `session-context.md` in every project. Update before and after every significant action. Reference project docs, don't duplicate them.
 
