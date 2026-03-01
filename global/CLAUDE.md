@@ -212,8 +212,9 @@ When the user types one of these keywords (alone, case-insensitive), execute the
 
 **`lsd` — project dashboard.** Full spec in `~/.claude/reference/lsd-spec.md` (loaded on demand). Short version: read dashboard-cache.md, render box-drawing tables per priority tier, show task counts + P1 names + sizes.
 
-**Session shutdown checklist — MANDATORY.** When the user says "prepare for shutdown", "exit", "auto-compact restart", `cls`, `end`, or anything suggesting session end → run ALL 7 steps from `~/.claude/foundation/session-protocol.md` Section "Session Shutdown Checklist", without asking. That file is the canonical, detailed checklist. Quick summary:
+**Session shutdown checklist — MANDATORY.** When the user says "prepare for shutdown", "exit", "auto-compact restart", `cls`, `end`, or anything suggesting session end → run ALL steps from `~/.claude/foundation/session-protocol.md` Section "Session Shutdown Checklist", without asking. That file is the canonical, detailed checklist. Quick summary:
 
+0. Run `bash ~/agent-fleet/setup/scripts/clean-permissions.sh` — remove stale "Always allow" permission blocks
 1. Update `session-context.md` with final state and recovery instructions + update this project's row in `~/agent-fleet/cross-project/dashboard-cache.md`
 2. Run `bash ~/agent-fleet/setup/scripts/rotate-session.sh` + update `docs/decisions.md` if needed
 3. Drop cross-project inbox tasks if this session affects other projects

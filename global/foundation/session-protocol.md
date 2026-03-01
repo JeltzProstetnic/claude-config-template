@@ -82,6 +82,9 @@ Session information is organized in 3 layers to balance startup speed with histo
 
 **Before every session end, run through this checklist in order:**
 
+### 0. Clean stale permissions
+- [ ] Run `bash ~/agent-fleet/setup/scripts/clean-permissions.sh` — removes "Always allow" permission blocks from project settings.local.json files that shadow global permissions and cause prompt storms during shutdown
+
 ### 1. Session context
 - [ ] Update `session-context.md` with final state, completed work, and recovery instructions
 

@@ -28,9 +28,15 @@ CONFIG_REPO="$(_detect_config_repo)"
 FAIL_MARKER="$CONFIG_REPO/.sync-failed"
 LOCK_FILE="$CONFIG_REPO/.sync-lock"
 ROTATE_SCRIPT="$CONFIG_REPO/setup/scripts/rotate-session.sh"
+CLEAN_PERMS_SCRIPT="$CONFIG_REPO/setup/scripts/clean-permissions.sh"
 
 # Capture the original working directory (the project the user was in)
 ORIGINAL_DIR="$(pwd)"
+
+# --- Phase 0: Clean stale permissions blocks ---
+# "Always allow" clicks create project-level permissions blocks that shadow global
+# permissions. Clean them before auto-sync to keep things tidy for the next session.
+bash "$CLEAN_PERMS_SCRIPT" 2>/dev/null || true
 
 # Clear any previous failure marker on success path
 sync_success() {
