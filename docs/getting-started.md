@@ -78,9 +78,9 @@ This runs a health check. You should see symlinks confirmed and no errors. If an
 If you configured MCP servers that need tokens:
 
 ```bash
-cp secrets/vault.json.example secrets/vault.json
+cp setup/secrets/vault.json.example secrets/vault.json
 # Edit vault.json with your tokens
-bash secrets/vault-manage.sh encrypt
+bash setup/secrets/vault-manage.sh encrypt
 ```
 
 The plaintext `vault.json` is gitignored. Only the encrypted `.enc` file is committed, so your tokens never appear in git history.
@@ -270,8 +270,8 @@ No machine is special. Any machine with the repo cloned and `setup.sh` run is a 
 | Check system health | `bash sync.sh status` |
 | Pass a task to another project | Add `- [ ] **project-name**: task` to `cross-project/inbox.md` |
 | Add a new machine | Clone repo, run `bash setup.sh` |
-| Update MCP tokens | Edit `secrets/vault.json`, then `bash secrets/vault-manage.sh encrypt` |
-| Deploy tokens to MCP configs | `bash secrets/vault-manage.sh deploy` |
+| Update MCP tokens | Edit `secrets/vault.json`, then `bash setup/secrets/vault-manage.sh encrypt` |
+| Deploy tokens to MCP configs | `bash setup/secrets/vault-manage.sh deploy` |
 | Add a domain protocol | Copy `global/domains/_template/`, edit, reference from project manifest |
 | Install skill collections | `bash setup/scripts/install-skill-collections.sh` |
 

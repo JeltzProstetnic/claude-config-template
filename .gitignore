@@ -53,3 +53,11 @@ build/
 
 # Machine catalog (auto-generated, per-machine)
 machine-catalog.md
+
+# Runtime session state (created at first use, not needed in template)
+session-context.md
+session-history.md
+
+# Runtime project state (created by first-run refinement, per-user)
+backlog.md
+registry.md

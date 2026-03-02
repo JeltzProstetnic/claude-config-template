@@ -40,10 +40,10 @@ The script detects your OS, installs dependencies, creates symlinks, and sets up
 
 **2. Set up credentials** (optional)
 
-Copy `secrets/vault.json.example` to `secrets/vault.json`, add your tokens, then encrypt:
+Copy `setup/setup/secrets/vault.json.example` to `setup/secrets/vault.json`, add your tokens, then encrypt:
 
 ```bash
-bash secrets/vault-manage.sh encrypt
+bash setup/secrets/vault-manage.sh encrypt
 ```
 
 Or configure MCP servers manually in `~/.mcp.json`. Or skip this entirely and tell the agent to set up integrations later.
@@ -364,18 +364,18 @@ Never commit secrets. API tokens, passwords, and credentials stay out of tracked
 |------------|---------------|
 | MCP server tokens | `~/.mcp.json` (local, gitignored) |
 | Project-specific secrets | `.env` files (add to `.gitignore`) |
-| Portable secrets | Encrypted vault (`secrets/vault.json.enc`) |
+| Portable secrets | Encrypted vault (`setup/secrets/vault.json.enc`) |
 
 ### Vault (optional)
 
 Encrypted credential storage that travels with the repo:
 
 ```bash
-cp secrets/vault.json.example secrets/vault.json
+cp setup/setup/secrets/vault.json.example setup/secrets/vault.json
 # Add your tokens
-bash secrets/vault-manage.sh encrypt
+bash setup/secrets/vault-manage.sh encrypt
 # On another machine:
-bash secrets/vault-manage.sh deploy
+bash setup/secrets/vault-manage.sh deploy
 ```
 
 `vault.json` is gitignored. Only the encrypted `.enc` file is committed.

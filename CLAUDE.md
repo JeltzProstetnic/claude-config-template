@@ -12,13 +12,15 @@ Claude Code configuration management across all machines and projects.
 
 | File | Purpose |
 |------|---------|
-| `session-context.md` | Current session state — **read first** |
-| `session-history.md` | Rolling last 3 sessions — read on demand, not at startup |
+| `session-context.md` | Current session state — **read first** (gitignored, created at first use) |
+| `session-history.md` | Rolling last 3 sessions — read on demand (gitignored, created by rotation) |
 | `docs/session-log.md` | Full session archive — append-only, never pruned |
 | `docs/decisions.md` | Curated decisions & rationale — topical, manually maintained |
-| `backlog.md` | Prioritized backlog — read when active TODOs are done |
-| `registry.md` | All projects, all machines — the phone book |
+| `backlog.md` | Prioritized backlog (gitignored, created by first-run refinement) |
+| `registry.md` | All projects, all machines (gitignored, created by first-run refinement) |
 | `sync.sh` | Bidirectional sync tool (setup/deploy/collect/status) |
+| `setup/secrets/` | Encrypted token vault scaffold |
+| `setup/vps/` | VPS-specific bootstrap and skills |
 | `README.md` | Human-readable infrastructure overview |
 
 ## Key Paths

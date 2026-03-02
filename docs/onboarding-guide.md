@@ -147,8 +147,8 @@ Same two commands. The agent detects the new machine, creates a machine file, an
 Portable encrypted token storage. One password, all your API keys, deployed to the right configs on any machine:
 
 ```bash
-bash secrets/vault-manage.sh encrypt    # Encrypt after editing
-bash secrets/vault-manage.sh deploy     # Decrypt + write to MCP configs
+bash setup/secrets/vault-manage.sh encrypt    # Encrypt after editing
+bash setup/secrets/vault-manage.sh deploy     # Decrypt + write to MCP configs
 ```
 
 ### Test suite

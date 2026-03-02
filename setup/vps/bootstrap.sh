@@ -132,7 +132,7 @@ fi
 log_info "agent-fleet → $CONFIG_REPO"
 
 # Copy secrets.env into the repo's vps/ dir (gitignored)
-cp "$SECRETS_FILE" "$CONFIG_REPO/vps/secrets.env" 2>/dev/null || true
+cp "$SECRETS_FILE" "$CONFIG_REPO/setup/vps/secrets.env" 2>/dev/null || true
 
 # ──────────────────────────────────────────────
 # Step 3: cc-mirror directory structure
@@ -517,8 +517,8 @@ log_step "Step 10/11: Skills"
 # cc-mirror config skills — embedded from primary machine
 # orchestration skill
 mkdir -p "$CC_MIRROR_DIR/config/skills/orchestration/references/domains"
-if [[ -d "$CONFIG_REPO/vps/skills/orchestration" ]]; then
-    cp -r "$CONFIG_REPO/vps/skills/orchestration/"* "$CC_MIRROR_DIR/config/skills/orchestration/"
+if [[ -d "$CONFIG_REPO/setup/vps/skills/orchestration" ]]; then
+    cp -r "$CONFIG_REPO/setup/vps/skills/orchestration/"* "$CC_MIRROR_DIR/config/skills/orchestration/"
     log_info "Installed cc-mirror skill: orchestration (from repo)"
 else
     log_warn "orchestration skill not in repo — will need manual copy"
@@ -526,8 +526,8 @@ fi
 
 # task-manager skill
 mkdir -p "$CC_MIRROR_DIR/config/skills/task-manager"
-if [[ -d "$CONFIG_REPO/vps/skills/task-manager" ]]; then
-    cp -r "$CONFIG_REPO/vps/skills/task-manager/"* "$CC_MIRROR_DIR/config/skills/task-manager/"
+if [[ -d "$CONFIG_REPO/setup/vps/skills/task-manager" ]]; then
+    cp -r "$CONFIG_REPO/setup/vps/skills/task-manager/"* "$CC_MIRROR_DIR/config/skills/task-manager/"
     log_info "Installed cc-mirror skill: task-manager (from repo)"
 else
     log_warn "task-manager skill not in repo — will need manual copy"
