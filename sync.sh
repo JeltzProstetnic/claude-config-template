@@ -89,22 +89,20 @@ cmd_setup() {
     # Create CLAUDE.local.md if missing (machine-specific @import)
     if [[ ! -f "$HOME/CLAUDE.local.md" ]]; then
         # Auto-detect machine file from hostname
-        # Customize this case statement for your machines:
         local machine_file=""
         local hn
         hn=$(get_hostname)
         case "$hn" in
-            # myserver*)        machine_file="server.md" ;;
-            # DESKTOP-*|MY-PC*) machine_file="wsl.md" ;;
-            # steamdeck*|jupiter*) machine_file="steamdeck.md" ;;
-            # fedora*)
-            #     if [[ "$(whoami)" == "work-user" ]]; then
-            #         machine_file="office.md"
-            #     else
-            #         machine_file="home.md"
-            #     fi
-            #     ;;
-            *) ;;  # No auto-detection configured — will prompt manually
+            srv943133)    machine_file="vps.md" ;;
+            JELTZ*|DESKTOP-*) machine_file="wsl.md" ;;
+            steamdeck*|jupiter*) machine_file="steamdeck.md" ;;
+            fedora*)
+                if [[ "$(whoami)" == "gruber" ]]; then
+                    machine_file="office.md"
+                else
+                    machine_file="fedora-home.md"
+                fi
+                ;;
         esac
         if [[ -n "$machine_file" && -f "$CLAUDE_HOME/machines/$machine_file" ]]; then
             echo "@~/.claude/machines/$machine_file" > "$HOME/CLAUDE.local.md"
@@ -174,69 +172,10 @@ cmd_deploy() {
     # Template drift check
     check_template_drift
 
+    # Personal-data leak check on template
+    check_personal_data_leaks
+
     log_info "Deploy complete."
-}
-
-# ---- SETTINGS HEALTH CHECK ----
-# Warns if live settings.json is missing critical blocks (permissions, hooks).
-# A partial settings.json causes permission prompt storms and missing hooks.
-check_settings_health() {
-    local live_settings="$HOME/.cc-mirror/mclaude/config/settings.json"
-    [ -f "$live_settings" ] || return 0
-
-    local issues=0
-
-    if ! grep -q '"permissions"' "$live_settings" 2>/dev/null; then
-        log_warn "settings.json is missing 'permissions' block — all tool calls will require manual approval"
-        log_warn "  Fix: redeploy from template: sed 's|__HOME__|$HOME|g' setup/config/settings.json > $live_settings"
-        issues=$((issues + 1))
-    fi
-
-    if ! grep -q '"hooks"' "$live_settings" 2>/dev/null; then
-        log_warn "settings.json is missing 'hooks' block — SessionStart/End hooks won't fire"
-        issues=$((issues + 1))
-    fi
-
-    if ! grep -q '"enabledPlugins"' "$live_settings" 2>/dev/null; then
-        log_warn "settings.json is missing 'enabledPlugins' block — skill plugins won't load"
-        issues=$((issues + 1))
-    fi
-
-    if [ "$issues" -gt 0 ]; then
-        log_warn "$issues critical block(s) missing from settings.json. Redeploy from template."
-    fi
-}
-
-# ---- PROJECT FOLDER ICONS ----
-# Applies priority-colored badge icons to project folders.
-# Platform-detected: Windows (shortcut hub on NTFS) and/or KDE (.directory files).
-apply_project_icons() {
-    local icon_script="$SCRIPT_DIR/setup/scripts/project-icons.sh"
-    [ -f "$icon_script" ] || return 0
-
-    # Generate icons if they don't exist yet
-    if [ ! -f "$SCRIPT_DIR/setup/icons/p1.ico" ]; then
-        if python3 -c "from PIL import Image" 2>/dev/null; then
-            log_info "Generating project badge icons..."
-            bash "$icon_script" generate 2>/dev/null || log_warn "Icon generation failed (Pillow missing?)"
-        else
-            log_warn "Pillow not installed — skipping icon generation (pip install Pillow)"
-            return 0
-        fi
-    fi
-
-    # Apply based on platform
-    if [ -d /mnt/c/ ]; then
-        # WSL — apply Windows shortcut hub
-        log_info "Applying project folder icons (Windows shortcut hub)..."
-        bash "$icon_script" apply-windows 2>/dev/null || log_warn "Windows icon application failed"
-    fi
-
-    if command -v kwriteconfig6 >/dev/null 2>&1 || command -v kwriteconfig5 >/dev/null 2>&1; then
-        # KDE — apply .directory files
-        log_info "Applying project folder icons (KDE Dolphin)..."
-        bash "$icon_script" apply-kde 2>/dev/null || log_warn "KDE icon application failed"
-    fi
 }
 
 clean_marketplace_plugins() {
@@ -288,12 +227,102 @@ deploy_project_rules() {
     done
 }
 
+# ---- SETTINGS HEALTH CHECK ----
+# Warns if live settings.json is missing critical blocks (permissions, hooks).
+# A partial settings.json causes permission prompt storms and missing hooks.
+check_settings_health() {
+    local live_settings="$HOME/.cc-mirror/mclaude/config/settings.json"
+    [ -f "$live_settings" ] || return 0
+
+    local issues=0
+
+    if ! grep -q '"permissions"' "$live_settings" 2>/dev/null; then
+        log_warn "settings.json is missing 'permissions' block — all tool calls will require manual approval"
+        log_warn "  Fix: redeploy from template: sed 's|__HOME__|$HOME|g' setup/config/settings.json > $live_settings"
+        issues=$((issues + 1))
+    fi
+
+    if ! grep -q '"hooks"' "$live_settings" 2>/dev/null; then
+        log_warn "settings.json is missing 'hooks' block — SessionStart/End hooks won't fire"
+        issues=$((issues + 1))
+    fi
+
+    if ! grep -q '"enabledPlugins"' "$live_settings" 2>/dev/null; then
+        log_warn "settings.json is missing 'enabledPlugins' block — skill plugins won't load"
+        issues=$((issues + 1))
+    fi
+
+    if [ "$issues" -gt 0 ]; then
+        log_warn "$issues critical block(s) missing from settings.json. Redeploy from template."
+    fi
+}
+
+# ---- PROJECT FOLDER ICONS ----
+# Applies priority-colored badge icons to project folders.
+# Platform-detected: Windows (shortcut hub on NTFS) and/or KDE (.directory files).
+apply_project_icons() {
+    local icon_script="$SCRIPT_DIR/setup/scripts/project-icons.sh"
+    [ -f "$icon_script" ] || return 0
+
+    # Generate icons if they don't exist yet
+    if [ ! -f "$SCRIPT_DIR/setup/icons/p1.ico" ]; then
+        if python3 -c "from PIL import Image" 2>/dev/null; then
+            log_info "Generating project badge icons..."
+            bash "$icon_script" generate 2>/dev/null || log_warn "Icon generation failed (Pillow missing?)"
+        else
+            log_warn "Pillow not installed — skipping icon generation (pip install Pillow, or pipx run pip install Pillow on SteamOS)"
+            return 0
+        fi
+    fi
+
+    # Apply based on platform
+    if [ -d /mnt/c/ ]; then
+        # WSL — apply Windows shortcut hub
+        log_info "Applying project folder icons (Windows shortcut hub)..."
+        bash "$icon_script" apply-windows 2>/dev/null || log_warn "Windows icon application failed"
+    fi
+
+    if command -v kwriteconfig6 >/dev/null 2>&1 || command -v kwriteconfig5 >/dev/null 2>&1; then
+        # KDE — apply .directory files
+        log_info "Applying project folder icons (KDE Dolphin)..."
+        bash "$icon_script" apply-kde 2>/dev/null || log_warn "KDE icon application failed"
+    fi
+}
+
+# ---- PERSONAL DATA LEAK CHECK ----
+# Scans the template repo for patterns that suggest personal data leaked into public files.
+# Warns but does not block — manual review required.
+check_personal_data_leaks() {
+    local template_dir="$HOME/agent-fleet"
+    [ -d "$template_dir" ] || return 0  # Template not on this machine
+
+    local leak_count=0
+    # Patterns: email addresses, known personal identifiers, account names
+    # Exclude .git directory and binary files
+    local hits
+    hits=$(grep -rn --include='*.md' --include='*.sh' --include='*.json' --include='*.yml' --include='*.yaml' \
+        -E '(jeltz\.prostetnic|matthiasgruber\.com|matthias@|JeltzProstetnic|GrubMat|IvoclarR-D-AIOrg|148\.230\.108\.107|srv943133)' \
+        "$template_dir" 2>/dev/null | grep -v '\.git/' || true)
+
+    if [ -n "$hits" ]; then
+        leak_count=$(echo "$hits" | wc -l)
+        log_warn "Personal data patterns found in template ($leak_count occurrence(s)):"
+        echo "$hits" | head -10 | while IFS= read -r line; do
+            log_warn "  $line"
+        done
+        if [ "$leak_count" -gt 10 ]; then
+            log_warn "  ... and $((leak_count - 10)) more"
+        fi
+        log_warn "Review these before pushing the template to a public repo."
+    fi
+}
+
 # ---- TEMPLATE DRIFT CHECK ----
 # Checks tracked files for changes since last template sync.
-# The manifest stores file hashes — if changed, template may need updating.
+# The manifest stores personal file hashes — if changed, template may need updating.
 check_template_drift() {
-    local manifest="$SCRIPT_DIR/template-sync-manifest.md"
-    [ -f "$manifest" ] || return 0  # No manifest — nothing to check
+    local template_dir="$HOME/agent-fleet"
+    [ -d "$template_dir" ] || return 0  # Template not on this machine
 
     # CRC32 computation requires python3
     if ! command -v python3 >/dev/null 2>&1; then
@@ -301,12 +330,15 @@ check_template_drift() {
         return 0
     fi
 
+    local manifest="$SCRIPT_DIR/template-sync-manifest.md"
+    [ -f "$manifest" ] || { log_warn "template-sync-manifest.md missing — cannot check template drift"; return 0; }
+
     local drift_count=0
 
     # Extract tracked file rows from manifest: lines matching "| `path` | `hash` |"
     # Use process substitution to avoid consuming stdin
     local tracked_files
-    tracked_files=$(sed -n 's/^| `\([^`]*\)` | `\([0-9a-f]\{8\}\)`.*/\1|\2/p' "$manifest" || true)
+    tracked_files=$(grep -oP '^\| `[^`]+` \| `[0-9a-f]{8}`' "$manifest" | sed 's/^| `//;s/` | `/|/;s/`$//' || true)
 
     local line file_path hash
     while IFS= read -r line; do
@@ -328,7 +360,7 @@ check_template_drift() {
     done <<< "$tracked_files"
 
     if [ "$drift_count" -gt 0 ]; then
-        log_warn "$drift_count file(s) drifted. Review template-sync-manifest.md and propagate changes."
+        log_warn "$drift_count file(s) drifted. Review template-sync-manifest.md and propagate to template."
     fi
 }
 
@@ -502,6 +534,174 @@ cmd_status() {
     fi
 }
 
+# ---- CHECK: Aggregated drift/staleness check ----
+# Usage: bash sync.sh check [--repo-root PATH] [--template-dir PATH]
+# Checks all propagation chains for drift or staleness.
+# Output: summary per chain. Exit 0 always (warning-only, never blocks).
+cmd_check() {
+    local check_repo_root="$SCRIPT_DIR"
+    local check_template_dir="$HOME/agent-fleet"
+    local check_mobile_dir="$HOME/agent-fleet-mobile"
+
+    # Parse override arguments
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --repo-root)     check_repo_root="$2"; shift 2 ;;
+            --template-dir)  check_template_dir="$2"; shift 2 ;;
+            --mobile-dir)    check_mobile_dir="$2"; shift 2 ;;
+            *) shift ;;
+        esac
+    done
+
+    local total_issues=0
+
+    # ── 1. Template drift (CRC32 manifest) ───────────────────────────────
+    log_info "Checking template drift..."
+    local manifest="$check_repo_root/template-sync-manifest.md"
+    if [ ! -f "$manifest" ]; then
+        log_warn "template-sync-manifest.md missing — cannot check template drift"
+        total_issues=$((total_issues + 1))
+    elif ! command -v python3 >/dev/null 2>&1; then
+        log_warn "python3 not found — skipping template drift check"
+    else
+        local drift_count=0
+        local tracked_files
+        tracked_files=$(grep -oP '^\| `[^`]+` \| `[0-9a-f]{8}`' "$manifest" | sed 's/^| `//;s/` | `/|/;s/`$//' || true)
+
+        local line file_path hash
+        while IFS= read -r line; do
+            [ -n "$line" ] || continue
+            file_path="${line%%|*}"
+            hash="${line##*|}"
+            [ -n "$file_path" ] && [ -n "$hash" ] || continue
+
+            local full_path="$check_repo_root/$file_path"
+            if [ ! -f "$full_path" ]; then
+                continue  # Missing file — skip gracefully
+            fi
+
+            local current_hash
+            current_hash=$(python3 -c "import binascii,sys;print(format(binascii.crc32(open(sys.argv[1],'rb').read())&0xFFFFFFFF,'08x'))" "$full_path")
+
+            if [ "$current_hash" != "$hash" ]; then
+                log_warn "$file_path drifted (was: $hash, now: $current_hash)"
+                drift_count=$((drift_count + 1))
+            fi
+        done <<< "$tracked_files"
+
+        if [ "$drift_count" -gt 0 ]; then
+            log_warn "Template: $drift_count file(s) drifted"
+            total_issues=$((total_issues + drift_count))
+        else
+            log_info "Template: clean"
+        fi
+    fi
+
+    # ── 2. Personal data leak check ──────────────────────────────────────
+    if [ -d "$check_template_dir" ]; then
+        log_info "Checking template for sensitive patterns..."
+        local hits
+        hits=$(grep -rn --include='*.md' --include='*.sh' --include='*.json' --include='*.yml' --include='*.yaml' \
+            -E '(jeltz\.prostetnic|matthiasgruber\.com|matthias@|JeltzProstetnic|GrubMat|IvoclarR-D-AIOrg|148\.230\.108\.107|srv943133)' \
+            "$check_template_dir" 2>/dev/null | grep -v '\.git/' || true)
+
+        if [ -n "$hits" ]; then
+            local leak_count
+            leak_count=$(echo "$hits" | wc -l)
+            log_warn "personal data patterns found in template ($leak_count occurrence(s)):"
+            echo "$hits" | head -5 | while IFS= read -r line; do
+                log_warn "  $line"
+            done
+            total_issues=$((total_issues + leak_count))
+        else
+            log_info "Template: clean (no sensitive patterns found)"
+        fi
+    fi
+
+    # ── 3. Mobile staleness ──────────────────────────────────────────────
+    if [ -d "$check_mobile_dir" ]; then
+        log_info "Checking mobile repo staleness..."
+        local mobile_script="$check_repo_root/setup/scripts/mobile-deploy.sh"
+        if [ -f "$mobile_script" ]; then
+            local mobile_out
+            mobile_out=$(bash "$mobile_script" --check-staleness --config-repo "$check_repo_root" --target "$check_mobile_dir" 2>&1)
+            echo "$mobile_out" | grep -v '^\[' || true  # Pass through non-log lines
+            if echo "$mobile_out" | grep -q "is stale"; then
+                total_issues=$((total_issues + 1))
+            else
+                log_info "Mobile: up to date"
+            fi
+        fi
+    else
+        log_info "Mobile repo not present — skipping"
+    fi
+
+    # ── 4. Hook drift (repo vs deployed) ─────────────────────────────────
+    log_info "Checking hook drift..."
+    local hook_drift=0
+    if [ -d "$check_repo_root/global/hooks" ] && [ -d "$CLAUDE_HOME/hooks" ]; then
+        for hook in "$check_repo_root/global/hooks/"*.sh; do
+            [ -f "$hook" ] || continue
+            local base
+            base=$(basename "$hook")
+            local deployed="$CLAUDE_HOME/hooks/$base"
+            if [ ! -f "$deployed" ]; then
+                log_warn "Hook $base: not deployed"
+                hook_drift=$((hook_drift + 1))
+            elif ! diff -q "$hook" "$deployed" >/dev/null 2>&1; then
+                log_warn "Hook $base: drifted (repo ≠ deployed)"
+                hook_drift=$((hook_drift + 1))
+            fi
+        done
+    fi
+    if [ "$hook_drift" -eq 0 ]; then
+        log_info "Hooks: clean"
+    else
+        total_issues=$((total_issues + hook_drift))
+    fi
+
+    # ── 5. Project rule drift (repo vs deployed) ─────────────────────────
+    log_info "Checking project rule drift..."
+    local rule_drift=0
+    if [ -d "$check_repo_root/projects" ]; then
+        for project_dir in "$check_repo_root/projects"/*/; do
+            [ -d "$project_dir" ] || continue
+            local project_name
+            project_name=$(basename "$project_dir")
+            local project_path
+            project_path=$(find_project_path "$project_name")
+            [ -n "$project_path" ] && [ -d "$project_path" ] || continue
+
+            for rule in "$project_dir/rules/"*.md; do
+                [ -f "$rule" ] || continue
+                local base
+                base=$(basename "$rule")
+                local target="$project_path/.claude/$base"
+                if [ ! -f "$target" ]; then
+                    log_warn "Rule $project_name/$base: not deployed"
+                    rule_drift=$((rule_drift + 1))
+                elif ! diff -q "$rule" "$target" >/dev/null 2>&1; then
+                    log_warn "Rule $project_name/$base: drifted (repo ≠ deployed)"
+                    rule_drift=$((rule_drift + 1))
+                fi
+            done
+        done
+    fi
+    if [ "$rule_drift" -eq 0 ]; then
+        log_info "Project rules: clean"
+    else
+        total_issues=$((total_issues + rule_drift))
+    fi
+
+    # ── Summary ──────────────────────────────────────────────────────────
+    echo ""
+    if [ "$total_issues" -eq 0 ]; then
+        log_info "All propagation chains clean ✓"
+    else
+        log_warn "$total_issues issue(s) found across propagation chains"
+    fi
+}
+
 # ---- Helper: find project path by name ----
 find_project_path() {
     local name="$1"
@@ -532,15 +732,17 @@ case "${1:-help}" in
     setup)          cmd_setup ;;
     deploy)         cmd_deploy ;;
     collect)        cmd_collect ;;
+    check)          shift; cmd_check "$@" ;;
     status)         cmd_status ;;
     mobile-deploy)  bash "$SCRIPT_DIR/setup/scripts/mobile-deploy.sh" ;;
     mobile-collect) bash "$SCRIPT_DIR/setup/scripts/mobile-deploy.sh" --collect ;;
     *)
-        echo "Usage: bash sync.sh {setup|deploy|collect|status|mobile-deploy|mobile-collect}"
+        echo "Usage: bash sync.sh {setup|deploy|collect|check|status|mobile-deploy|mobile-collect}"
         echo ""
         echo "  setup          — Replace live files with symlinks to repo (recommended, one-time)"
         echo "  deploy         — Copy from repo → live locations (for non-symlink setups)"
         echo "  collect        — Copy from live locations → repo (capture session edits)"
+        echo "  check          — Check all propagation chains for drift/staleness"
         echo "  status         — Show differences between repo and live"
         echo "  mobile-deploy  — Generate/refresh the mobile agent-fleet repo"
         echo "  mobile-collect — Merge mobile outbox tasks into cross-project inbox"

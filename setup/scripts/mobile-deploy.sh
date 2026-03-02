@@ -27,7 +27,8 @@ USER_HOME=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --collect)    MODE="collect"; shift ;;
+        --collect)          MODE="collect"; shift ;;
+        --check-staleness)  MODE="check-staleness"; shift ;;
         --config-repo) CONFIG_REPO="$2"; shift 2 ;;
         --target)     TARGET="$2"; shift 2 ;;
         --home)       USER_HOME="$2"; shift 2 ;;
@@ -259,9 +260,50 @@ SC
     log_info "Mobile repo deployed to $TARGET"
 }
 
+# ── CHECK-STALENESS MODE ─────────────────────────────────────────────────────
+
+cmd_check_staleness() {
+    if [[ ! -d "$TARGET" ]]; then
+        log_warn "Mobile repo not found at $TARGET — cannot check staleness"
+        return 0
+    fi
+
+    local stale_count=0
+
+    # Check key source files against their mobile snapshots
+    local -a source_target_pairs=(
+        "$CONFIG_REPO/global/foundation/user-profile.md|$TARGET/context/user-profile.md"
+        "$CONFIG_REPO/global/foundation/personas.md|$TARGET/context/personas.md"
+        "$CONFIG_REPO/registry.md|$TARGET/context/registry.md"
+        "$CONFIG_REPO/cross-project/dashboard-cache.md|$TARGET/context/dashboard-cache.md"
+    )
+
+    for pair in "${source_target_pairs[@]}"; do
+        local src="${pair%%|*}"
+        local tgt="${pair##*|}"
+        [[ -f "$src" ]] || continue
+        [[ -f "$tgt" ]] || { stale_count=$((stale_count + 1)); continue; }
+
+        # Compare modification times: if source is newer than target, it's stale
+        if [[ "$src" -nt "$tgt" ]]; then
+            local base
+            base=$(basename "$src")
+            log_warn "$base: mobile repo is stale (source newer than snapshot)"
+            stale_count=$((stale_count + 1))
+        fi
+    done
+
+    if [[ "$stale_count" -eq 0 ]]; then
+        log_info "Mobile repo is up to date"
+    else
+        log_warn "$stale_count file(s) stale. Run 'sync.sh mobile-deploy' to refresh."
+    fi
+}
+
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 case "$MODE" in
-    deploy)  cmd_deploy ;;
-    collect) cmd_collect ;;
+    deploy)          cmd_deploy ;;
+    collect)         cmd_collect ;;
+    check-staleness) cmd_check_staleness ;;
 esac

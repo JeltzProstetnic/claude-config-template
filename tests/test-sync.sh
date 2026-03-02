@@ -153,6 +153,177 @@ test_status_runs() {
 }
 run_test "status subcommand runs successfully" test_status_runs
 
+# ── Hook deploy: executable permissions ──────────────────────────────────────
+
+test_deploy_hooks_makes_executable() {
+    mkdir -p "$TEST_TMPDIR/global/hooks"
+    mkdir -p "$TEST_TMPDIR/claude-home/hooks"
+
+    # Create a hook that is NOT executable
+    echo '#!/bin/bash' > "$TEST_TMPDIR/global/hooks/my-hook.sh"
+    echo 'echo hello' >> "$TEST_TMPDIR/global/hooks/my-hook.sh"
+    chmod -x "$TEST_TMPDIR/global/hooks/my-hook.sh"
+
+    (
+        GLOBAL_DIR="$TEST_TMPDIR/global"
+        CLAUDE_HOME="$TEST_TMPDIR/claude-home"
+        source <(sed -n '/^deploy_hooks()/,/^}/p' "$SYNC_SCRIPT" | sed 's/log_info/echo/g')
+        deploy_hooks
+    )
+
+    # Deployed hook must be executable
+    [[ -x "$TEST_TMPDIR/claude-home/hooks/my-hook.sh" ]]
+}
+run_test "deploy_hooks makes hooks executable even if source isn't" test_deploy_hooks_makes_executable
+
+# ── Hook collect: uncommitted edit safety ────────────────────────────────────
+
+test_collect_hooks_skips_uncommitted() {
+    # Set up a git repo as the "config repo"
+    create_git_repo "$TEST_TMPDIR/repo"
+    mkdir -p "$TEST_TMPDIR/repo/global/hooks"
+    echo '#!/bin/bash' > "$TEST_TMPDIR/repo/global/hooks/test-hook.sh"
+    echo 'echo original' >> "$TEST_TMPDIR/repo/global/hooks/test-hook.sh"
+    (cd "$TEST_TMPDIR/repo" && git add -A && git commit -m "add hook" >/dev/null 2>&1)
+
+    # Now make an uncommitted edit to the repo source
+    echo 'echo EDITED IN REPO' >> "$TEST_TMPDIR/repo/global/hooks/test-hook.sh"
+
+    # Set up the deployed hook (different content — simulates live edit)
+    mkdir -p "$TEST_TMPDIR/claude-home/hooks"
+    echo '#!/bin/bash' > "$TEST_TMPDIR/claude-home/hooks/test-hook.sh"
+    echo 'echo deployed version' >> "$TEST_TMPDIR/claude-home/hooks/test-hook.sh"
+
+    # Collect should SKIP this hook because repo has uncommitted changes
+    local out
+    out=$(
+        SCRIPT_DIR="$TEST_TMPDIR/repo"
+        GLOBAL_DIR="$TEST_TMPDIR/repo/global"
+        CLAUDE_HOME="$TEST_TMPDIR/claude-home"
+        PROJECTS_DIR="$TEST_TMPDIR/repo/projects"
+        NC='\033[0m'; RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
+        mkdir -p "$PROJECTS_DIR"
+        source <(sed -n '/^log_info()/,/^}/p' "$SYNC_SCRIPT"; sed -n '/^log_warn()/,/^}/p' "$SYNC_SCRIPT")
+        # Source the collect hook logic
+        source <(awk '/^cmd_collect\(\)/,/^}/' "$SYNC_SCRIPT" | sed 's/find_project_path/echo/g')
+        cmd_collect 2>&1
+    )
+    assert_contains "$out" "uncommitted"
+
+    # Verify the repo source was NOT overwritten by the deployed version
+    assert_file_contains "$TEST_TMPDIR/repo/global/hooks/test-hook.sh" "EDITED IN REPO"
+}
+run_test "collect_hooks skips hooks with uncommitted repo edits" test_collect_hooks_skips_uncommitted
+
+# ── Hook collect: copies changed hooks ───────────────────────────────────────
+
+test_collect_hooks_copies_changed() {
+    # Set up a clean git repo
+    create_git_repo "$TEST_TMPDIR/repo"
+    mkdir -p "$TEST_TMPDIR/repo/global/hooks"
+    echo '#!/bin/bash' > "$TEST_TMPDIR/repo/global/hooks/test-hook.sh"
+    echo 'echo original' >> "$TEST_TMPDIR/repo/global/hooks/test-hook.sh"
+    (cd "$TEST_TMPDIR/repo" && git add -A && git commit -m "add hook" >/dev/null 2>&1)
+
+    # Set up a DIFFERENT deployed hook (simulates live modification)
+    mkdir -p "$TEST_TMPDIR/claude-home/hooks"
+    echo '#!/bin/bash' > "$TEST_TMPDIR/claude-home/hooks/test-hook.sh"
+    echo 'echo modified at deploy target' >> "$TEST_TMPDIR/claude-home/hooks/test-hook.sh"
+
+    # Collect should pick up the changed deployed hook
+    local out
+    out=$(
+        SCRIPT_DIR="$TEST_TMPDIR/repo"
+        GLOBAL_DIR="$TEST_TMPDIR/repo/global"
+        CLAUDE_HOME="$TEST_TMPDIR/claude-home"
+        PROJECTS_DIR="$TEST_TMPDIR/repo/projects"
+        NC='\033[0m'; RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
+        mkdir -p "$PROJECTS_DIR"
+        source <(sed -n '/^log_info()/,/^}/p' "$SYNC_SCRIPT"; sed -n '/^log_warn()/,/^}/p' "$SYNC_SCRIPT")
+        source <(awk '/^cmd_collect\(\)/,/^}/' "$SYNC_SCRIPT" | sed 's/find_project_path/echo/g')
+        cmd_collect 2>&1
+    )
+    assert_contains "$out" "Collected hook"
+
+    # Verify the repo source was updated with the deployed content
+    assert_file_contains "$TEST_TMPDIR/repo/global/hooks/test-hook.sh" "modified at deploy target"
+}
+run_test "collect_hooks copies changed deployed hooks to repo" test_collect_hooks_copies_changed
+
+# ── Project rule deploy ──────────────────────────────────────────────────────
+
+test_deploy_project_rules_copies_to_target() {
+    # Set up mock project rules in repo
+    mkdir -p "$TEST_TMPDIR/repo/projects/myproject/rules"
+    echo "# My Project Rules" > "$TEST_TMPDIR/repo/projects/myproject/rules/CLAUDE.md"
+
+    # Set up mock project target
+    mkdir -p "$TEST_TMPDIR/myproject"
+
+    # Deploy should copy rules to the project's .claude/ dir
+    (
+        PROJECTS_DIR="$TEST_TMPDIR/repo/projects"
+        NC='\033[0m'; RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
+        source <(sed -n '/^log_info()/,/^}/p' "$SYNC_SCRIPT"; sed -n '/^log_warn()/,/^}/p' "$SYNC_SCRIPT")
+        # Override find_project_path to return our mock
+        find_project_path() { [[ "$1" == "myproject" ]] && echo "$TEST_TMPDIR/myproject"; }
+        source <(sed -n '/^deploy_project_rules()/,/^}/p' "$SYNC_SCRIPT")
+        deploy_project_rules
+    )
+
+    assert_file_exists "$TEST_TMPDIR/myproject/.claude/CLAUDE.md"
+    assert_file_contains "$TEST_TMPDIR/myproject/.claude/CLAUDE.md" "My Project Rules"
+}
+run_test "deploy_project_rules copies rules to target project" test_deploy_project_rules_copies_to_target
+
+test_deploy_project_rules_skips_missing_project() {
+    # Set up mock project rules but NO target project dir
+    mkdir -p "$TEST_TMPDIR/repo/projects/ghost/rules"
+    echo "# Ghost Rules" > "$TEST_TMPDIR/repo/projects/ghost/rules/CLAUDE.md"
+
+    local out
+    out=$(
+        PROJECTS_DIR="$TEST_TMPDIR/repo/projects"
+        NC='\033[0m'; RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
+        source <(sed -n '/^log_info()/,/^}/p' "$SYNC_SCRIPT"; sed -n '/^log_warn()/,/^}/p' "$SYNC_SCRIPT")
+        find_project_path() { echo ""; }
+        source <(sed -n '/^deploy_project_rules()/,/^}/p' "$SYNC_SCRIPT")
+        deploy_project_rules 2>&1
+    )
+    assert_contains "$out" "not found"
+}
+run_test "deploy_project_rules skips projects not on this machine" test_deploy_project_rules_skips_missing_project
+
+test_collect_project_rules_from_live() {
+    # Set up repo project rules dir (empty)
+    mkdir -p "$TEST_TMPDIR/repo/projects/myproject/rules"
+
+    # Set up live project with modified rules
+    mkdir -p "$TEST_TMPDIR/myproject/.claude"
+    echo "# Modified at live" > "$TEST_TMPDIR/myproject/.claude/CLAUDE.md"
+
+    # Collect should pick up the live rule
+    local out
+    out=$(
+        SCRIPT_DIR="$TEST_TMPDIR/repo"
+        GLOBAL_DIR="$TEST_TMPDIR/repo/global"
+        CLAUDE_HOME="$TEST_TMPDIR/claude-home"
+        PROJECTS_DIR="$TEST_TMPDIR/repo/projects"
+        NC='\033[0m'; RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
+        mkdir -p "$CLAUDE_HOME" "$GLOBAL_DIR"
+        # Symlink CLAUDE.md so collect doesn't try to copy it
+        ln -sf "$GLOBAL_DIR/CLAUDE.md" "$CLAUDE_HOME/CLAUDE.md" 2>/dev/null || true
+        touch "$GLOBAL_DIR/CLAUDE.md"
+        source <(sed -n '/^log_info()/,/^}/p' "$SYNC_SCRIPT"; sed -n '/^log_warn()/,/^}/p' "$SYNC_SCRIPT")
+        find_project_path() { [[ "$1" == "myproject" ]] && echo "$TEST_TMPDIR/myproject"; }
+        source <(awk '/^cmd_collect\(\)/,/^}/' "$SYNC_SCRIPT")
+        cmd_collect 2>&1
+    )
+    assert_contains "$out" "Collected"
+    assert_file_contains "$TEST_TMPDIR/repo/projects/myproject/rules/CLAUDE.md" "Modified at live"
+}
+run_test "collect picks up modified project rules from live" test_collect_project_rules_from_live
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 
 suite_summary

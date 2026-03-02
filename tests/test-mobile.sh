@@ -369,6 +369,50 @@ test_deploys_claude_md() {
 }
 run_test "CLAUDE.md is deployed from template" test_deploys_claude_md
 
+# ── Mobile staleness detection ───────────────────────────────────────────────
+
+test_mobile_staleness_detected_when_source_newer() {
+    setup_mock_config "$TEST_TMPDIR/config"
+    setup_mock_projects "$TEST_TMPDIR/home"
+
+    # Deploy mobile repo
+    bash "$MOBILE_DEPLOY" \
+        --config-repo "$TEST_TMPDIR/config" \
+        --target "$TEST_TMPDIR/mobile" \
+        --home "$TEST_TMPDIR/home"
+
+    # Wait a moment, then modify a source file (make it newer than the snapshot)
+    sleep 1
+    echo "# Updated profile" > "$TEST_TMPDIR/config/global/foundation/user-profile.md"
+
+    # Check staleness — should detect the source is newer
+    local out rc=0
+    out=$(bash "$MOBILE_DEPLOY" --check-staleness \
+        --config-repo "$TEST_TMPDIR/config" \
+        --target "$TEST_TMPDIR/mobile" 2>&1) || rc=$?
+    assert_contains "$out" "mobile repo is stale"
+}
+run_test "staleness detected when source is newer than mobile snapshot" test_mobile_staleness_detected_when_source_newer
+
+test_mobile_staleness_clean_after_fresh_deploy() {
+    setup_mock_config "$TEST_TMPDIR/config"
+    setup_mock_projects "$TEST_TMPDIR/home"
+
+    # Fresh deploy
+    bash "$MOBILE_DEPLOY" \
+        --config-repo "$TEST_TMPDIR/config" \
+        --target "$TEST_TMPDIR/mobile" \
+        --home "$TEST_TMPDIR/home"
+
+    # Check staleness immediately — should be clean
+    local out rc=0
+    out=$(bash "$MOBILE_DEPLOY" --check-staleness \
+        --config-repo "$TEST_TMPDIR/config" \
+        --target "$TEST_TMPDIR/mobile" 2>&1) || rc=$?
+    assert_not_contains "$out" "mobile repo is stale"
+}
+run_test "no staleness detected after fresh deploy" test_mobile_staleness_clean_after_fresh_deploy
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 
 suite_summary
