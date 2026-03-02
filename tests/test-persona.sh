@@ -95,9 +95,9 @@ run_test "supports arbitrary number of personas per machine" test_multiple_perso
 test_global_rules() {
     local global="$REPO_ROOT/global/CLAUDE.md"
     assert_file_contains "$global" "## Persona System"
-    assert_file_contains "$global" "Activates"
-    assert_file_contains "$global" "switch to"
-    assert_file_contains "$global" "semantic"
+    assert_file_contains "$global" "personas.md"
+    assert_file_contains "$global" "persona-rules.md"
+    assert_file_contains "$global" ".active-persona"
 }
 run_test "global CLAUDE.md contains persona rendering rules" test_global_rules
 
