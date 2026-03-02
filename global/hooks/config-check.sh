@@ -139,6 +139,15 @@ if [ -f "$CLAUDE_LOCAL" ]; then
     fi
 fi
 
+# Check 12: Detect uncollected mobile outbox tasks
+MOBILE_REPO="$HOME/agent-fleet-mobile"
+if [ -f "$MOBILE_REPO/inbox/outbox.md" ]; then
+    MOBILE_TASKS=$(grep -c '^\- \[ \]' "$MOBILE_REPO/inbox/outbox.md" 2>/dev/null || echo "0")
+    if [ "$MOBILE_TASKS" -gt 0 ] 2>/dev/null; then
+        WARNINGS="${WARNINGS:+$WARNINGS | }Mobile outbox has $MOBILE_TASKS uncollected task(s). Run 'bash $CONFIG_REPO/sync.sh mobile-collect' to merge them into the inbox."
+    fi
+fi
+
 # Output JSON if there are warnings or inbox items
 SYSTEM_MSG=""
 if [ -n "$WARNINGS" ]; then

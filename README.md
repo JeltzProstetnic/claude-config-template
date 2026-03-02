@@ -191,6 +191,32 @@ Personas are defined in `global/foundation/personas.md`. Machine-specific overri
 
 ---
 
+## Mobile Access
+
+Access your agent fleet from a phone or tablet through a lightweight, read-only repo:
+
+```bash
+# On any full machine:
+bash sync.sh mobile-deploy
+```
+
+This creates `~/agent-fleet-mobile/` with:
+- **Read-only snapshots** of your projects, dashboard, and registry
+- **An outbox** (`inbox/outbox.md`) — the only writable file
+- **A minimal CLAUDE.md** — no startup checklist, no hooks, instant-on
+
+Post tasks from mobile and they flow back automatically:
+
+```
+Mobile → outbox.md → sync.sh mobile-collect → cross-project inbox → target project
+```
+
+The `mobile-collect` step runs automatically at session end on any full machine. Or run it manually: `bash sync.sh mobile-collect`.
+
+Mobile mode is intentionally limited. It reads, it captures tasks, and it answers questions. It can't edit config, run deployments, or modify project source. This prevents multi-device conflicts while giving you full visibility into your system from anywhere.
+
+---
+
 ## Adding a Second Machine
 
 ```bash

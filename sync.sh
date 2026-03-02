@@ -529,16 +529,20 @@ find_project_path() {
 
 # ---- Main ----
 case "${1:-help}" in
-    setup)   cmd_setup ;;
-    deploy)  cmd_deploy ;;
-    collect) cmd_collect ;;
-    status)  cmd_status ;;
+    setup)          cmd_setup ;;
+    deploy)         cmd_deploy ;;
+    collect)        cmd_collect ;;
+    status)         cmd_status ;;
+    mobile-deploy)  bash "$SCRIPT_DIR/setup/scripts/mobile-deploy.sh" ;;
+    mobile-collect) bash "$SCRIPT_DIR/setup/scripts/mobile-deploy.sh" --collect ;;
     *)
-        echo "Usage: bash sync.sh {setup|deploy|collect|status}"
+        echo "Usage: bash sync.sh {setup|deploy|collect|status|mobile-deploy|mobile-collect}"
         echo ""
-        echo "  setup   — Replace live files with symlinks to repo (recommended, one-time)"
-        echo "  deploy  — Copy from repo → live locations (for non-symlink setups)"
-        echo "  collect — Copy from live locations → repo (capture session edits)"
-        echo "  status  — Show differences between repo and live"
+        echo "  setup          — Replace live files with symlinks to repo (recommended, one-time)"
+        echo "  deploy         — Copy from repo → live locations (for non-symlink setups)"
+        echo "  collect        — Copy from live locations → repo (capture session edits)"
+        echo "  status         — Show differences between repo and live"
+        echo "  mobile-deploy  — Generate/refresh the mobile agent-fleet repo"
+        echo "  mobile-collect — Merge mobile outbox tasks into cross-project inbox"
         ;;
 esac

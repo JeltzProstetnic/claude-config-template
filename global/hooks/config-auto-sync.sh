@@ -33,7 +33,18 @@ CLEAN_PERMS_SCRIPT="$CONFIG_REPO/setup/scripts/clean-permissions.sh"
 # Capture the original working directory (the project the user was in)
 ORIGINAL_DIR="$(pwd)"
 
-# --- Phase 0: Clean stale permissions blocks ---
+# --- Phase 0: Collect mobile outbox tasks ---
+MOBILE_REPO="$HOME/agent-fleet-mobile"
+if [ -f "$MOBILE_REPO/inbox/outbox.md" ]; then
+    MOBILE_TASKS=$(grep -c '^\- \[ \]' "$MOBILE_REPO/inbox/outbox.md" 2>/dev/null || echo "0")
+    if [ "$MOBILE_TASKS" -gt 0 ] 2>/dev/null; then
+        bash "$CONFIG_REPO/setup/scripts/mobile-deploy.sh" --collect \
+            --config-repo "$CONFIG_REPO" \
+            --target "$MOBILE_REPO" 2>/dev/null || true
+    fi
+fi
+
+# --- Phase 0.5: Clean stale permissions blocks ---
 # "Always allow" clicks create project-level permissions blocks that shadow global
 # permissions. Clean them before auto-sync to keep things tidy for the next session.
 bash "$CLEAN_PERMS_SCRIPT" 2>/dev/null || true
