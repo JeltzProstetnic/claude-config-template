@@ -19,10 +19,10 @@ _detect_config_repo() {
         echo "$(cd "$(dirname "$hook_real")/../.." && pwd)"
         return
     fi
-    for d in "$HOME/agent-fleet" "$HOME/cfg-agent-fleet"; do
+    for d in "$HOME/cfg-agent-fleet" "$HOME/agent-fleet"; do
         [[ -f "$d/sync.sh" && ! -f "$d/.template-repo" ]] && echo "$d" && return
     done
-    echo "$HOME/agent-fleet"  # final fallback
+    echo "$HOME/cfg-agent-fleet"  # final fallback
 }
 CONFIG_REPO="$(_detect_config_repo)"
 FAIL_MARKER="$CONFIG_REPO/.sync-failed"
@@ -48,6 +48,21 @@ fi
 # "Always allow" clicks create project-level permissions blocks that shadow global
 # permissions. Clean them before auto-sync to keep things tidy for the next session.
 bash "$CLEAN_PERMS_SCRIPT" 2>/dev/null || true
+
+# --- Phase 0.7: Run propagation drift check ---
+# Runs sync.sh check, captures any warnings to .sync-warnings.log.
+# The SessionStart hook (config-check.sh) reads this log and surfaces drift to Claude.
+# Warning only — never blocks shutdown.
+DRIFT_LOG="$CONFIG_REPO/.sync-warnings.log"
+if [ -f "$CONFIG_REPO/sync.sh" ]; then
+    DRIFT_OUTPUT=$(bash "$CONFIG_REPO/sync.sh" check 2>&1 || true)
+    DRIFT_ISSUES=$(echo "$DRIFT_OUTPUT" | grep -i 'warn\|drifted\|stale\|issue(s) found' || true)
+    if [ -n "$DRIFT_ISSUES" ]; then
+        printf '%s\n' "$DRIFT_ISSUES" > "$DRIFT_LOG"
+    else
+        rm -f "$DRIFT_LOG"
+    fi
+fi
 
 # Clear any previous failure marker on success path
 sync_success() {

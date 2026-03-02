@@ -148,6 +148,14 @@ if [ -f "$MOBILE_REPO/inbox/outbox.md" ]; then
     fi
 fi
 
+# Check 13: Surface propagation drift warnings from previous session's sync.sh check
+DRIFT_LOG="$CONFIG_REPO/.sync-warnings.log"
+if [ -f "$DRIFT_LOG" ] && [ -s "$DRIFT_LOG" ]; then
+    DRIFT_CONTENT=$(cat "$DRIFT_LOG" | tr '\n' '; ' | sed 's/; $//')
+    WARNINGS="${WARNINGS:+$WARNINGS | }Propagation drift detected at last shutdown: $DRIFT_CONTENT. Run 'bash $CONFIG_REPO/sync.sh check' for details, then fix with 'bash $CONFIG_REPO/sync.sh deploy'."
+    rm -f "$DRIFT_LOG"
+fi
+
 # Output JSON if there are warnings or inbox items
 SYSTEM_MSG=""
 if [ -n "$WARNINGS" ]; then

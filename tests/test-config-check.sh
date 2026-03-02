@@ -964,6 +964,64 @@ test_claude_local_missing_file() {
 }
 run_test "CLAUDE.local.md: no warning when file does not exist (optional)" test_claude_local_missing_file
 
+# ── 19. Propagation drift warning surfacing (Check 13) ────────────────────────
+
+test_propagation_drift_warning_surfaced() {
+    local config_repo="$TEST_TMPDIR/config-repo"
+    local mock_home="$TEST_TMPDIR/home"
+    local project_dir="$TEST_TMPDIR/project"
+    mkdir -p "$mock_home/.claude" "$project_dir"
+
+    create_mock_config_repo "$config_repo"
+    touch "$config_repo/CLAUDE.md"
+    ln -sf "$config_repo/CLAUDE.md" "$mock_home/.claude/CLAUDE.md"
+
+    # Create .sync-warnings.log with drift warnings (as SessionEnd hook would)
+    cat > "$config_repo/.sync-warnings.log" << 'EOF'
+sync.sh drifted (was: 51363f86, now: abcd1234)
+Template: 1 file(s) drifted
+EOF
+
+    local patched
+    patched=$(create_patched_script "$config_repo" "$mock_home" "$project_dir")
+    local output
+    output=$(run_hook "$patched")
+
+    local msg
+    msg=$(echo "$output" | python3 -c "import json,sys; print(json.load(sys.stdin)['systemMessage'])" 2>/dev/null)
+    assert_contains "$msg" "Propagation drift" "should surface drift warning"
+    assert_contains "$msg" "drifted" "should include drift details"
+
+    # Log file should be cleaned up after reading
+    assert_file_not_exists "$config_repo/.sync-warnings.log" \
+        "should remove .sync-warnings.log after surfacing"
+}
+run_test "check 13: surfaces propagation drift from .sync-warnings.log" test_propagation_drift_warning_surfaced
+
+test_no_warning_without_drift_log() {
+    local config_repo="$TEST_TMPDIR/config-repo"
+    local remote_repo="$TEST_TMPDIR/remote.git"
+    local mock_home="$TEST_TMPDIR/home"
+    local project_dir="$TEST_TMPDIR/project"
+    mkdir -p "$mock_home/.claude" "$project_dir"
+
+    create_tracked_repo_main "$config_repo" "$remote_repo"
+    (cd "$config_repo" && touch sync.sh && git add sync.sh && git commit -m "add sync.sh" >/dev/null 2>&1 && git push origin main >/dev/null 2>&1)
+    (cd "$config_repo" && touch CLAUDE.md && git add CLAUDE.md && git commit -m "add CLAUDE.md" >/dev/null 2>&1 && git push origin main >/dev/null 2>&1)
+    ln -sf "$config_repo/CLAUDE.md" "$mock_home/.claude/CLAUDE.md"
+
+    # No .sync-warnings.log file
+
+    local patched
+    patched=$(create_patched_script "$config_repo" "$mock_home" "$project_dir")
+    local output
+    output=$(run_hook "$patched")
+
+    assert_not_contains "$output" "Propagation drift" "should NOT mention drift when no log exists"
+    assert_not_contains "$output" "sync-warnings" "should NOT reference warning log file"
+}
+run_test "check 13: no warning when .sync-warnings.log absent" test_no_warning_without_drift_log
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 
 suite_summary
