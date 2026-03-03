@@ -22,6 +22,10 @@ Tweet drafts, reply options, and anything the user needs to copy-paste goes in p
 - **Open in editor** after writing — same platform detection as PDFs: WSL → `powershell.exe -Command "Start-Process '$(wslpath -w /path)'"`, native Linux → `xdg-open /path`, VPS → termbin (no editor). Overwriting a file already open is fine — editors auto-reload.
 - **Never claim a file has been updated without a tool call.** If you say "I've updated the file" you must have an Edit or Write tool result confirming it.
 
+## Email Draft Rule
+
+Email drafts go to Gmail Drafts via `draft_gmail_message` MCP tool, not to `tmp/` text files. The Gmail draft is the workspace — it's editable, sendable, and doesn't create orphan files.
+
 ## Subagent File Delivery Rule
 
 When a subagent (Task tool) produces a file (PDF, image, etc.), do NOT open it again in the parent context. **Check procedure — run BEFORE any file-open command:**

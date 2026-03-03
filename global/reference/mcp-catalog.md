@@ -37,6 +37,7 @@ Do NOT embed tokens in this file. All credentials live in `.mcp.json`.
 - The `USER_GOOGLE_EMAIL` field determines which Google account is used.
 - OAuth tokens may expire. If auth fails, may need to re-authorize via browser.
 - First run may require a browser-based consent flow to generate a refresh token.
+- **CRITICAL env var names:** workspace-mcp expects `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` (NOT `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`). Using the wrong names causes silent auth failure — the server starts but all tools return errors. Verify the exact names in the workspace-mcp README if in doubt.
 
 ### 3. Twitter/X
 
@@ -125,6 +126,7 @@ Do NOT embed tokens in this file. All credentials live in `.mcp.json`.
 - Tools: `generate_mermaid_diagram_file` (saves to disk), `generate_mermaid_diagram_stream` (SSE only — won't work in stdio mode).
 - Use `generate_mermaid_diagram_file` — pass `code` (Mermaid syntax), `folder` (output dir), `name` (filename), optional `theme` (default/neutral/dark/forest/base), `format` (png/svg/pdf).
 - For non-Mermaid diagrams (PlantUML, Graphviz, D2), fall back to CLI tools or manual rendering. This server is Mermaid-only.
+- **Replaced `diagram-bridge-mcp`** (2026-02-27): old package was never published to npm, silently failed every session.
 
 ### 9. PostgreSQL (Optional)
 

@@ -37,6 +37,16 @@
 
 **Adding missing commands:** If a command is frequently used but not in the global permissions, add `Bash(command:*)` to `settings.json` — don't rely on project-level approvals (they cause the settings.local.json override problem described above).
 
+## Long git commit Messages with Multiple -m Flags
+
+**Symptom:** `git -C <path> commit -m "..." -m "..." -m "..."` prompts for permission even though `Bash(git:*)` is in global permissions.
+
+**Root cause:** Under investigation. Hypothesis: either the total command length exceeds some internal threshold, or the multiple quoted strings with special characters (parentheses, dashes, colons) confuse the permission matcher. Observed with 8 `-m` flags totaling ~600 chars.
+
+**Workaround:** Unknown — the `-m` flag approach was itself a workaround for the HEREDOC `$()` and temp file `/tmp/` permission issues. The occasional permission prompt on long commit messages may be unavoidable. If it becomes frequent, investigate whether a shorter commit message (fewer `-m` flags) avoids the prompt.
+
+**Status:** Needs deeper investigation. Track whether this reproduces across platforms.
+
 ## Compound Command Permission Problem
 
 **Root cause:** Bash permissions use prefix matching. `Bash(cd:*)` and `Bash(git:*)` individually don't cover compound commands like `cd ~/project && git status`. The compound command is evaluated as a whole string, and `cd ~/project && git status` starts with `cd` but Claude Code's security layer flags it as a compound command with `&&` — triggering the "bare repository attacks" safety warning regardless of individual permissions.
@@ -47,11 +57,29 @@
 
 **Behavioral rule for Claude:** NEVER use `cd <dir> && <command>` patterns. Use `-C` flags, absolute paths, or `--work-tree`/`--git-dir` for git. For non-git commands, use absolute paths directly.
 
-## Auto-Clean Hook (config-check.sh Check 10)
+## Auto-Clean: Permissions Block Removal
 
-The SessionStart hook `config-check.sh` now includes Check 10, which automatically:
-1. Scans all `~/*/.claude/settings.local.json` files
-2. If a `"permissions"` key is found, removes it (keeping all other config)
-3. Warns in the session startup message
+Stale permissions blocks are cleaned at **three points**:
+1. **SessionStart** (config-check.sh Check 10) — clean for the new session
+2. **Shutdown checklist step 0** — agent runs `clean-permissions.sh` before git operations
+3. **SessionEnd hook** (config-auto-sync.sh Phase 0) — final sweep before auto-commit
 
-This prevents permission contamination from persisting across sessions.
+All three call the shared script `setup/scripts/clean-permissions.sh`, which:
+1. Scans all `~/*/.claude/settings.local.json` files (maxdepth 3)
+2. If a `"permissions"` key is found, removes it silently (keeping all other config)
+3. Reports how many files were cleaned (silent if none)
+
+**Why three points?** Startup cleanup only protects the new session. If a user clicks "Always allow" mid-session, the permissions block shadows global permissions immediately. The shutdown cleanup (both agent-driven step 0 and hook Phase 0) ensures the shutdown sequence itself doesn't get hit with prompts. Belt, suspenders, and a safety pin.
+
+## Disabling Tips — TWO Separate Settings
+
+Claude Code has two independent tip/suggestion systems. Both must be disabled in `settings.json`:
+
+| Setting | Location | Controls |
+|---------|----------|----------|
+| `"spinnerTipsEnabled": false` | Top-level key | Tips shown in the spinner while Claude thinks |
+| `"CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION": "0"` | `env` block | Greyed-out prompt suggestions in the input field |
+
+**Common mistake:** Setting only one of these and thinking tips are fully disabled. They are different features with different config mechanisms. The env var is a string `"0"`, the other is a boolean `false`.
+
+**Settings path:** Check your launcher's config directory for `settings.json`. Fixes applied to the wrong path are silently ignored.

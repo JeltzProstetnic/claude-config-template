@@ -25,7 +25,18 @@ Older completed items: `docs/backlog-archive.md`
 
 Every open task gets a stable ID: `PRJ-NN` where `PRJ` is a short project prefix (2-4 uppercase letters) and `NN` is a zero-padded sequential number. IDs are unique within a project — never reused, even after completion. The user can reference tasks by ID across sessions.
 
-Pick a 2-4 letter prefix when creating a project backlog and add it to a tracking table (in the project's `CLAUDE.md` or the config repo's global `CLAUDE.md`). Examples: `CFG` for config, `INF` for infrastructure, `APP` for an application project.
+Standard prefixes (customize for your projects):
+
+| Prefix | Project |
+|--------|---------|
+| `CFG` | Config/meta project |
+| `INF` | Infrastructure |
+| `APP` | Application project |
+| `WEB` | Web frontend |
+| `API` | Backend/API service |
+| `DOC` | Documentation project |
+
+New projects: pick a 2-4 letter prefix, add to this table.
 
 ## Keep Backlogs Lean
 

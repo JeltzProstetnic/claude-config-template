@@ -24,7 +24,10 @@ Each tier gets its own box-drawing table with a tier header. This is the key vis
 ├────┼──────────────────┼──────────────┼──────────────────────────────────────┼──────┤
 │  1 │ my-project       │ code (p)     │ 3P1 1P2 4P3 — Fix auth; Deploy      │ 1.2G │
 │    │  +- sub-proj     │ library      │ 1P2                                  │ 340M │
+│    │  +- docs-site    │ docs         │ 2P3                                  │    — │
 │  2 │ config-repo      │ meta/config  │ 2P2 1P3                              │   5M │
+│    │  +- template     │ template     │ 2 open                               │ 128K │
+│  3 │ social-project   │ engagement   │ 1P1 12P2 5P3 — Post campaign         │ 544K │
 └────┴──────────────────┴──────────────┴──────────────────────────────────────┴──────┘
 ```
 
@@ -46,7 +49,46 @@ Each tier gets its own box-drawing table with a tier header. This is the key vis
 
 **Deadline flags**: append `!!` + description to the Size column: `544K !! Mar 15`.
 
-**Color note:** ANSI colors cannot render in Claude Code chat output (markdown renderer strips them). Box-drawing and bold text are the available visual tools.
+**Color note:** ANSI colors cannot render in Claude Code chat output (markdown renderer strips them). Box-drawing and bold text are the available visual tools. The statusline is the only surface with ANSI color support.
+
+**Reference rendering** (example with fake data — follow this structure exactly):
+
+**[P1] CRITICAL**
+```
+┌────┬──────────────────┬──────────────┬──────────────────────────────────────────────┬──────────────┐
+│  # │ Name             │ Type         │ Tasks                                        │ Size         │
+├────┼──────────────────┼──────────────┼──────────────────────────────────────────────┼──────────────┤
+│  1 │ my-project       │ research (p) │ 3P1 1P2 4P3 — Submit abstract; Fix; Review   │ 1.2G         │
+│    │  +- sub-module   │ code         │ 1P2                                          │ 340M         │
+│    │  +- test-suite   │ code         │ 2P3                                          │    —         │
+│  2 │ config-repo      │ meta/config  │ 2P2 1P3                                      │   5M         │
+│    │  +- template     │ template     │ 2 open                                       │ 128K         │
+│  3 │ social-project   │ engagement   │ 1P1 12P2 5P3 — Post campaign                 │ 544K !! M.15 │
+└────┴──────────────────┴──────────────┴──────────────────────────────────────────────┴──────────────┘
+```
+
+**[P2] ACTIVE**
+```
+┌────┬──────────────────┬──────────────┬──────────────────────────────────────────────┬──────┐
+│  # │ Name             │ Type         │ Tasks                                        │ Size │
+├────┼──────────────────┼──────────────┼──────────────────────────────────────────────┼──────┤
+│  4 │ creative-proj    │ code         │ *Shipped v2.0 gallery*                       │ 2.1G │
+│  5 │ data-pipeline    │ code (d)     │ 1P3                                          │    — │
+│  6 │ corporate-tools  │ tooling      │ —                                            │    — │
+│    │  +- compliance   │ business     │ —                                            │    — │
+│  7 │ infrastructure   │ infra        │ —                                            │    — │
+└────┴──────────────────┴──────────────┴──────────────────────────────────────────────┴──────┘
+```
+
+**[P3] ONGOING**
+```
+┌────┬──────────────────┬──────────────┬──────────────────────────────────────────────┬──────┐
+│  # │ Name             │ Type         │ Tasks                                        │ Size │
+├────┼──────────────────┼──────────────┼──────────────────────────────────────────────┼──────┤
+│  8 │ side-project     │ code         │ 1P3                                          │  45M │
+│  9 │ search-engine    │ infra        │ —                                            │    — │
+└────┴──────────────────┴──────────────┴──────────────────────────────────────────────┴──────┘
+```
 
 After the tables: `+ N paused/dormant (lsd all)` if P4-P5 projects were omitted.
 

@@ -31,6 +31,7 @@ When adding a new MCP server to the fleet, verify these BEFORE deploying to mach
 - **Does it require specific binaries?** (Node.js, Python, dotnet, etc.)
 - **Does it work on all target platforms?** (SteamOS, WSL, VPS, Fedora)
 - **PATH requirements**: always set explicit PATH in `.mcp.json` env — don't rely on shell PATH inheritance
+- **NVM node path (non-standard installs)**: Even when `npx` is called via its full NVM path (e.g., `/home/user/.nvm/versions/node/v22.x.x/bin/npx`), the spawned process may call `node` via PATH. If `node` isn't in the system PATH (SteamOS, some server distros), this fails with `/usr/bin/env: 'node': No such file or directory`. **Fix**: add the NVM bin directory to the PATH env var in `.mcp.json`, BEFORE the other entries: `"/home/user/.nvm/versions/node/v22.x.x/bin:/home/user/.local/bin:..."`. This affects ALL node-based MCP servers.
 
 ## enabledMcpjsonServers — the silent killer
 
@@ -49,6 +50,12 @@ When adding a new MCP server to `~/.mcp.json`, you MUST also add its name to `en
 
 Claude Code's "Always allow" button writes permission entries to `settings.local.json`. These REPLACE global permissions, causing prompt storms. The SessionStart hook `config-check.sh` Check 10 auto-removes any `permissions` block from all project `settings.local.json` files. See `~/.claude/knowledge/claude-code-permissions.md` for full details.
 
+## Plugin marketplace cleanup (clean-marketplace-plugins.sh)
+
+The cleanup script handles TWO problems:
+1. **External plugin directories**: Marketplace auto-installs third-party plugins (asana, stripe, etc.) that duplicate our MCP servers or are useless. Script removes all except `KEEP_PLUGINS` allowlist.
+2. **Stale enabledPlugins entries**: `settings.json` can accumulate references to plugins from non-existent marketplaces (e.g., community marketplace entries). These cause "N plugins failed to install" errors at startup. Script removes entries from any marketplace other than `claude-plugins-official`.
+
 ## Known server-specific notes
 
 ### Serena (code navigation)
@@ -62,6 +69,8 @@ Claude Code's "Always allow" button writes permission entries to `settings.local
 - Browser: set `BROWSER` env var for non-standard browsers
 - Auth cache: `~/.google_workspace_mcp/credentials/`
 - Scope: `--tools gmail` limits to Gmail only (faster startup, smaller tool set)
+- **CRITICAL env var names**: `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` (NOT `GOOGLE_CLIENT_ID`). workspace-mcp >=1.13 ONLY reads the `GOOGLE_OAUTH_*` variants. Using the wrong names causes silent failure with misleading "client_secret.json not found" errors.
+- **Post-deploy verification**: ALWAYS test with an actual MCP tool call (e.g., `search_gmail_messages`) after deploying. Never claim "next session it'll work" without testing.
 
 ### GitHub MCP
 - Auth: `GITHUB_PERSONAL_ACCESS_TOKEN` env var

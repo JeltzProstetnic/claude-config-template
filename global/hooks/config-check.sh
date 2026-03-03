@@ -31,9 +31,15 @@ if [ -f "$FAIL_MARKER" ]; then
     WARNINGS="CONFIG SYNC FAILED ($CONFIG_REPO) at $time — stage: $stage, detail: $detail. Run 'bash $CONFIG_REPO/sync.sh status' to diagnose. Uncommitted config changes may exist in $CONFIG_REPO/."
 fi
 
-# Check 2: Are symlinks intact?
+# Check 2: Are symlinks intact and pointing to the right repo?
 if [ ! -L "$HOME/.claude/CLAUDE.md" ]; then
     WARNINGS="${WARNINGS:+$WARNINGS | }CLAUDE.md is not symlinked to config repo. Run 'bash $CONFIG_REPO/sync.sh setup' to restore."
+elif [ -L "$HOME/.claude/CLAUDE.md" ]; then
+    SYMLINK_TARGET="$(readlink -f "$HOME/.claude/CLAUDE.md" 2>/dev/null)"
+    EXPECTED_TARGET="$(readlink -f "$CONFIG_REPO/global/CLAUDE.md" 2>/dev/null)"
+    if [ -n "$SYMLINK_TARGET" ] && [ -n "$EXPECTED_TARGET" ] && [ "$SYMLINK_TARGET" != "$EXPECTED_TARGET" ]; then
+        WARNINGS="${WARNINGS:+$WARNINGS | }CLAUDE.md symlink points to wrong directory ($SYMLINK_TARGET instead of $EXPECTED_TARGET). Run 'bash $CONFIG_REPO/sync.sh setup' to fix."
+    fi
 fi
 
 # Check 3: Does config repo exist?
@@ -145,6 +151,30 @@ if [ -f "$MOBILE_REPO/inbox/outbox.md" ]; then
     MOBILE_TASKS=$(grep -c '^\- \[ \]' "$MOBILE_REPO/inbox/outbox.md" 2>/dev/null || echo "0")
     if [ "$MOBILE_TASKS" -gt 0 ] 2>/dev/null; then
         WARNINGS="${WARNINGS:+$WARNINGS | }Mobile outbox has $MOBILE_TASKS uncollected task(s). Run 'bash $CONFIG_REPO/sync.sh mobile-collect' to merge them into the inbox."
+    fi
+fi
+
+# Check 13.5: Daily upstream dependency check (once per day, gated by marker file)
+DEP_MARKER="$HOME/.claude/.dep-check-date"
+DEP_TODAY=$(date +%Y-%m-%d)
+DEP_LAST=$(cat "$DEP_MARKER" 2>/dev/null || echo "never")
+if [ "$DEP_LAST" != "$DEP_TODAY" ]; then
+    DEP_RESULTS=""
+    # Claude Code version check
+    if command -v npm >/dev/null 2>&1; then
+        CC_LATEST=$(npm view @anthropic-ai/claude-code version 2>/dev/null || echo "?")
+        CC_INSTALLED=""
+        for pj in "$HOME"/.cc-mirror/*/npm/node_modules/@anthropic-ai/claude-code/package.json; do
+            [ -f "$pj" ] && CC_INSTALLED=$(python3 -c "import json; print(json.load(open('$pj'))['version'])" 2>/dev/null) && break
+        done
+        if [ -n "$CC_INSTALLED" ] && [ -n "$CC_LATEST" ] && [ "$CC_LATEST" != "?" ] && [ "$CC_INSTALLED" != "$CC_LATEST" ]; then
+            DEP_RESULTS="Claude Code update available: $CC_INSTALLED → $CC_LATEST (read changelog before updating)"
+        fi
+    fi
+    mkdir -p "$(dirname "$DEP_MARKER")"
+    echo "$DEP_TODAY" > "$DEP_MARKER"
+    if [ -n "$DEP_RESULTS" ]; then
+        WARNINGS="${WARNINGS:+$WARNINGS | }Upstream dependency check: $DEP_RESULTS"
     fi
 fi
 
