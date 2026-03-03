@@ -246,6 +246,29 @@ No computer is special. Each machine gets its own file in `global/machines/`. Co
 
 ---
 
+## Upgrading
+
+When the template gets new features, pull them into your fork:
+
+```bash
+# First time only: add the upstream remote
+git remote add upstream https://github.com/JeltzProstetnic/agent-fleet.git
+
+# Upgrade (fetches, merges, runs migrations, deploys)
+bash upgrade.sh
+```
+
+That's it. One command. Your personas, machine files, hostname mappings, and secrets are untouched — they live in gitignored `*.local.*` files that the upgrade never touches.
+
+If you've edited framework files directly, git merge will flag conflicts. Resolve them normally. The `sync.sh check` command will tell you what's drifted.
+
+**Dry run** (see what would change without changing anything):
+```bash
+bash upgrade.sh --dry-run
+```
+
+---
+
 ## What's in the Box
 
 ### Directory Structure

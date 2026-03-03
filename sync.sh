@@ -42,6 +42,11 @@ log_error() { echo -e "${RED}[ERROR]${NC} $*"; }
 # Portable hostname (SteamOS has no hostname binary)
 get_hostname() { hostname 2>/dev/null || cat /etc/hostname 2>/dev/null || cat /proc/sys/kernel/hostname 2>/dev/null || echo "unknown"; }
 
+# Source user-local overrides (hostname map, post-setup hook) if present
+if [[ -f "$SCRIPT_DIR/sync.local.sh" ]]; then
+    source "$SCRIPT_DIR/sync.local.sh"
+fi
+
 # ---- SETUP: Replace live files with symlinks to repo ----
 cmd_setup() {
     log_info "Setting up symlinks from live locations → repo"
@@ -92,19 +97,30 @@ cmd_setup() {
         local machine_file=""
         local hn
         hn=$(get_hostname)
-        case "$hn" in
-            # Example: map your hostnames to machine definition files
-            # my-vps-*)       machine_file="vps.md" ;;
-            # DESKTOP-*)      machine_file="wsl.md" ;;
-            # steamdeck*)     machine_file="steamdeck.md" ;;
-            # my-workstation*)
-            #     if [[ "$(whoami)" == "work-user" ]]; then
-            #         machine_file="office.md"
-            #     else
-            #         machine_file="home.md"
-            #     fi
-            #     ;;
-        esac
+
+        # Try user-defined hostname map first (from sync.local.sh)
+        if type local_hostname_map &>/dev/null; then
+            machine_file=$(local_hostname_map "$hn")
+        fi
+
+        # Fall back to framework defaults (commented examples for new users)
+        if [[ -z "$machine_file" ]]; then
+            case "$hn" in
+                # Example: map your hostnames to machine definition files
+                # my-vps-*)       machine_file="vps.md" ;;
+                # DESKTOP-*)      machine_file="wsl.md" ;;
+                # steamdeck*)     machine_file="steamdeck.md" ;;
+                # my-workstation*)
+                #     if [[ "$(whoami)" == "work-user" ]]; then
+                #         machine_file="office.md"
+                #     else
+                #         machine_file="home.md"
+                #     fi
+                #     ;;
+                *) ;;  # No match
+            esac
+        fi
+
         if [[ -n "$machine_file" && -f "$CLAUDE_HOME/machines/$machine_file" ]]; then
             echo "@~/.claude/machines/$machine_file" > "$HOME/CLAUDE.local.md"
             log_info "Created CLAUDE.local.md → machines/$machine_file"
@@ -114,6 +130,11 @@ cmd_setup() {
         fi
     else
         log_info "CLAUDE.local.md already exists"
+    fi
+
+    # Run user-defined post-setup hook (from sync.local.sh)
+    if type local_post_setup &>/dev/null; then
+        local_post_setup
     fi
 
     # Clean unwanted marketplace plugins
@@ -167,6 +188,9 @@ cmd_deploy() {
     # Clean unwanted marketplace plugins (auto-installed by Claude Code)
     clean_marketplace_plugins
 
+    # Deploy settings (merge base + override if present)
+    deploy_settings
+
     # Check live settings.json for missing critical blocks
     check_settings_health
 
@@ -184,6 +208,42 @@ clean_marketplace_plugins() {
     if [ -f "$script" ]; then
         bash "$script" 2>/dev/null || log_warn "Marketplace plugin cleanup returned non-zero"
     fi
+}
+
+deploy_settings() {
+    local base="$SCRIPT_DIR/setup/config/settings.json"
+    local override="$SCRIPT_DIR/setup/config/settings.override.json"
+
+    if [[ ! -f "$base" ]]; then
+        log_warn "No settings.json found — skipping settings deploy"
+        return
+    fi
+
+    if [[ -f "$override" ]]; then
+        log_info "Merging settings.json + settings.override.json"
+        # Deep merge: override wins for scalars, arrays are concatenated (deduped)
+        python3 -c "
+import json, sys
+base = json.load(open(sys.argv[1]))
+over = json.load(open(sys.argv[2]))
+def merge(b, o):
+    for k, v in o.items():
+        if k in b and isinstance(b[k], dict) and isinstance(v, dict):
+            merge(b[k], v)
+        elif k in b and isinstance(b[k], list) and isinstance(v, list):
+            combined = b[k] + [x for x in v if x not in b[k]]
+            b[k] = combined
+        else:
+            b[k] = v
+merge(base, over)
+print(json.dumps(base, indent=2))
+" "$base" "$override"
+    else
+        # No override — use base as-is (substitute __HOME__)
+        sed "s|__HOME__|$HOME|g" "$base"
+    fi > /dev/null  # Settings are deployed by check_settings_health, not here
+    # Note: actual settings deployment is handled by check_settings_health
+    # This function just validates the merge works. Full deploy TBD.
 }
 
 deploy_hooks() {

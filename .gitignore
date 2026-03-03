@@ -61,3 +61,8 @@ session-history.md
 # Runtime project state (created by first-run refinement, per-user)
 backlog.md
 registry.md
+
+# User-local overrides (gitignored, survive upgrades)
+sync.local.sh
+global/foundation/personas.local.md
+setup/config/settings.override.json

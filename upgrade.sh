@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+# upgrade.sh — One-command upgrade for agent-fleet
+#
+# Usage: bash upgrade.sh [--dry-run]
+#
+# Prerequisites: upstream remote must be configured
+#   git remote add upstream https://github.com/JeltzProstetnic/agent-fleet.git
+
+set -euo pipefail
+
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source shared utilities (fall back to minimal stubs)
+if [[ -f "$REPO_DIR/setup/lib.sh" ]]; then
+    source "$REPO_DIR/setup/lib.sh"
+else
+    log_info()  { echo -e "\033[0;32m[INFO]\033[0m $*"; }
+    log_warn()  { echo -e "\033[1;33m[WARN]\033[0m $*"; }
+    log_error() { echo -e "\033[0;31m[ERROR]\033[0m $*"; }
+fi
+
+DRY_RUN=false
+[[ "${1:-}" == "--dry-run" ]] && DRY_RUN=true
+
+# ── 1. Read current version ──────────────────────────────────────────────────
+
+CURRENT_VERSION="0.0"
+if [[ -f "$REPO_DIR/.agent-fleet-version" ]]; then
+    CURRENT_VERSION=$(cat "$REPO_DIR/.agent-fleet-version")
+fi
+log_info "Current version: $CURRENT_VERSION"
+
+# ── 2. Check upstream remote ─────────────────────────────────────────────────
+
+if ! git -C "$REPO_DIR" remote get-url upstream &>/dev/null; then
+    log_error "No 'upstream' remote configured."
+    log_error "Add it with: git remote add upstream https://github.com/JeltzProstetnic/agent-fleet.git"
+    exit 1
+fi
+
+# ── 3. Check working tree ────────────────────────────────────────────────────
+
+STASHED=false
+if [[ -n "$(git -C "$REPO_DIR" status --porcelain)" ]]; then
+    log_warn "Working tree has uncommitted changes. Stashing..."
+    git -C "$REPO_DIR" stash push -m "upgrade.sh auto-stash $(date +%Y%m%d_%H%M%S)" >/dev/null 2>&1
+    STASHED=true
+fi
+
+# ── 4. Fetch upstream ────────────────────────────────────────────────────────
+
+log_info "Fetching upstream..."
+git -C "$REPO_DIR" fetch upstream >/dev/null 2>&1
+
+# ── 5. Read upstream version ─────────────────────────────────────────────────
+
+UPSTREAM_VERSION=$(git -C "$REPO_DIR" show upstream/main:.agent-fleet-version 2>/dev/null || echo "0.0")
+log_info "Upstream version: $UPSTREAM_VERSION"
+
+if [[ "$CURRENT_VERSION" == "$UPSTREAM_VERSION" ]]; then
+    log_info "Already up to date."
+    if [[ "$STASHED" == "true" ]]; then
+        git -C "$REPO_DIR" stash pop >/dev/null 2>&1
+    fi
+    exit 0
+fi
+
+# ── 6. Dry run check ─────────────────────────────────────────────────────────
+
+if [[ "$DRY_RUN" == "true" ]]; then
+    log_info "[DRY RUN] Would upgrade $CURRENT_VERSION → $UPSTREAM_VERSION"
+    log_info "[DRY RUN] Would merge upstream/main and run pending migrations"
+    if [[ "$STASHED" == "true" ]]; then
+        git -C "$REPO_DIR" stash pop >/dev/null 2>&1
+    fi
+    exit 0
+fi
+
+# ── 7. Merge upstream ────────────────────────────────────────────────────────
+
+log_info "Merging upstream/main..."
+if ! git -C "$REPO_DIR" merge upstream/main --no-edit 2>&1; then
+    log_error "Merge conflict! Resolve manually, then re-run: bash upgrade.sh"
+    log_error "Your stash (if any) is preserved. Run 'git stash pop' after resolving."
+    exit 1
+fi
+
+# ── 8. Run pending migrations ────────────────────────────────────────────────
+
+if [[ -d "$REPO_DIR/migrations" ]]; then
+    for migration in "$REPO_DIR/migrations"/v*.sh; do
+        [[ -f "$migration" ]] || continue
+        # Extract version from filename (v0.3.sh → 0.3)
+        m_version=$(basename "$migration" .sh | sed 's/^v//')
+
+        # Run if migration version > current version (awk float comparison)
+        if awk "BEGIN{exit ($m_version > $CURRENT_VERSION ? 0 : 1)}" 2>/dev/null; then
+            log_info "Running migration v${m_version}..."
+            bash "$migration" "$REPO_DIR"
+        else
+            log_info "Skipping migration v${m_version} (already applied)"
+        fi
+    done
+fi
+
+# ── 9. Restore stash ─────────────────────────────────────────────────────────
+
+if [[ "$STASHED" == "true" ]]; then
+    log_info "Restoring stashed changes..."
+    git -C "$REPO_DIR" stash pop >/dev/null 2>&1 || log_warn "Stash pop had conflicts — resolve manually"
+fi
+
+# ── 10. Deploy ────────────────────────────────────────────────────────────────
+
+log_info "Deploying to live locations..."
+bash "$REPO_DIR/sync.sh" deploy 2>&1 || log_warn "Deploy returned non-zero — check output"
+
+# ── 11. Summary ──────────────────────────────────────────────────────────────
+
+FINAL_VERSION=$(cat "$REPO_DIR/.agent-fleet-version" 2>/dev/null || echo "unknown")
+log_info "Upgrade complete: $CURRENT_VERSION → $FINAL_VERSION"

@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# sync.local.sh — User-specific overrides for sync.sh
+# Copy this file to sync.local.sh and customize.
+# sync.local.sh is gitignored and never touched by upgrades.
+
+# Map hostname to machine file name
+# Called by sync.sh cmd_setup() when auto-detecting machine
+local_hostname_map() {
+    local hn="$1"
+    case "$hn" in
+        # my-vps-*)       echo "vps.md" ;;
+        # DESKTOP-*)      echo "wsl.md" ;;
+        # steamdeck*)     echo "steamdeck.md" ;;
+        # my-workstation*)
+        #     if [[ "$(whoami)" == "work-user" ]]; then
+        #         echo "office.md"
+        #     else
+        #         echo "home.md"
+        #     fi
+        #     ;;
+        *) ;;  # No match — falls through to framework defaults
+    esac
+}
+
+# Post-setup hook — runs after cmd_setup() completes standard steps
+# Uncomment and customize as needed:
+# local_post_setup() {
+#     # Example: MCP config symlink for cc-mirror installations
+#     # ln -sfn "$HOME/.cc-mirror/mclaude/config/.mcp.json" "$HOME/.mcp.json"
+#     # log_info "Linked MCP config"
+# }
