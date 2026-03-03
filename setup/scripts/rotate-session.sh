@@ -11,6 +11,12 @@
 
 set -euo pipefail
 
+# Source lib.sh for get_hostname() if available
+_ROTATE_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "${_ROTATE_SCRIPT_DIR}/../lib.sh" ]]; then
+    source "${_ROTATE_SCRIPT_DIR}/../lib.sh"
+fi
+
 PROJECT_DIR="${1:-.}"
 SESSION_FILE="$PROJECT_DIR/session-context.md"
 HISTORY_FILE="$PROJECT_DIR/session-history.md"
@@ -69,7 +75,7 @@ SHORT_TS=$(echo "$TIMESTAMP" | sed 's/\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}T[0-9]\{
 # Extract Machine
 MACHINE=$(printf '%s\n' "$CONTENT" | sed -n 's/.*\*\*Machine\*\*: \(.*\)/\1/p' | head -1)
 if [[ -z "$MACHINE" ]]; then
-    MACHINE=$(hostname 2>/dev/null || cat /etc/hostname 2>/dev/null || echo "unknown")
+    MACHINE=$(get_hostname)
 fi
 
 # Extract Session Goal

@@ -347,12 +347,14 @@ require_dir() {
 # ============================================================================
 
 # Check if file contains pattern
+# Safe under set -e: always returns 0 (found) or 1 (not found), never crashes.
 file_contains() {
     local file="$1"
     local pattern="$2"
 
     [[ ! -f "${file}" ]] && return 1
-    grep -qF "${pattern}" "${file}"
+    grep -qF "${pattern}" "${file}" 2>/dev/null || return 1
+    return 0
 }
 
 # Check if file exists and is non-empty

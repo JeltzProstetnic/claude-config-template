@@ -156,10 +156,16 @@ configure_mcp_servers() {
     local settings_local="${CONFIG_DIR}/settings.local.json"
 
     # Detect tool paths
-    local uvx_cmd npx_cmd safe_path
+    local uvx_cmd npx_cmd safe_path node_bin_dir
     uvx_cmd="$(command -v uvx 2>/dev/null || echo "uvx")"
     npx_cmd="$(command -v npx 2>/dev/null || echo "npx")"
+    # Include NVM node bin dir in PATH so spawned processes can find `node`
+    # (npx calls node internally, which fails on SteamOS/non-standard distros without this)
+    node_bin_dir="$(dirname "$(command -v node 2>/dev/null || echo "")" 2>/dev/null || true)"
     safe_path="${HOME}/.local/bin:${HOME}/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+    if [[ -n "${node_bin_dir}" && "${safe_path}" != *"${node_bin_dir}"* ]]; then
+        safe_path="${node_bin_dir}:${safe_path}"
+    fi
 
     # If .mcp.json already exists with configured credential servers, preserve it
     if [[ -f "${target}" ]]; then
@@ -299,7 +305,21 @@ SERENAYML
             echo -e "${COLOR_YELLOW}[DRY RUN]${COLOR_RESET} Would deploy: ${serena_config}"
         fi
     else
-        log_info "Serena config already exists at ${serena_config} — preserving"
+        # Serena may regenerate config with defaults on update — always enforce our settings
+        if grep -q 'web_dashboard_open_on_launch: true' "${serena_config}"; then
+            if [[ "${DRY_RUN}" == "false" ]]; then
+                sed -i 's/web_dashboard_open_on_launch: true/web_dashboard_open_on_launch: false/' "${serena_config}"
+                log_info "Serena config: re-enforced web_dashboard_open_on_launch=false"
+            else
+                echo -e "${COLOR_YELLOW}[DRY RUN]${COLOR_RESET} Would fix: web_dashboard_open_on_launch in ${serena_config}"
+            fi
+        fi
+        if grep -q 'gui_log_window: true' "${serena_config}"; then
+            if [[ "${DRY_RUN}" == "false" ]]; then
+                sed -i 's/gui_log_window: true/gui_log_window: false/' "${serena_config}"
+                log_info "Serena config: re-enforced gui_log_window=false"
+            fi
+        fi
     fi
 
     log_success "Base MCP servers configured (Serena, Playwright, Memory, Diagram Bridge)"
