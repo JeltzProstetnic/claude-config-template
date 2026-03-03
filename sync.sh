@@ -93,16 +93,17 @@ cmd_setup() {
         local hn
         hn=$(get_hostname)
         case "$hn" in
-            srv943133)    machine_file="vps.md" ;;
-            JELTZ*|DESKTOP-*) machine_file="wsl.md" ;;
-            steamdeck*|jupiter*) machine_file="steamdeck.md" ;;
-            fedora*)
-                if [[ "$(whoami)" == "gruber" ]]; then
-                    machine_file="office.md"
-                else
-                    machine_file="fedora-home.md"
-                fi
-                ;;
+            # Example: map your hostnames to machine definition files
+            # my-vps-*)       machine_file="vps.md" ;;
+            # DESKTOP-*)      machine_file="wsl.md" ;;
+            # steamdeck*)     machine_file="steamdeck.md" ;;
+            # my-workstation*)
+            #     if [[ "$(whoami)" == "work-user" ]]; then
+            #         machine_file="office.md"
+            #     else
+            #         machine_file="home.md"
+            #     fi
+            #     ;;
         esac
         if [[ -n "$machine_file" && -f "$CLAUDE_HOME/machines/$machine_file" ]]; then
             echo "@~/.claude/machines/$machine_file" > "$HOME/CLAUDE.local.md"
@@ -302,7 +303,11 @@ check_personal_data_leaks() {
     local hits
     hits=$(grep -rn --include='*.md' --include='*.sh' --include='*.json' --include='*.yml' --include='*.yaml' \
         -E '(jeltz\.prostetnic|matthiasgruber\.com|matthias@|JeltzProstetnic|GrubMat|IvoclarR-D-AIOrg|148\.230\.108\.107|srv943133)' \
-        "$template_dir" 2>/dev/null | grep -v '\.git/' || true)
+        "$template_dir" 2>/dev/null \
+        | grep -v '\.git/' \
+        | grep -v "\-E '(jeltz" \
+        | grep -v 'tests/.*\.sh:.*echo.*Contact' \
+        || true)
 
     if [ -n "$hits" ]; then
         leak_count=$(echo "$hits" | wc -l)
@@ -603,7 +608,11 @@ cmd_check() {
         local hits
         hits=$(grep -rn --include='*.md' --include='*.sh' --include='*.json' --include='*.yml' --include='*.yaml' \
             -E '(jeltz\.prostetnic|matthiasgruber\.com|matthias@|JeltzProstetnic|GrubMat|IvoclarR-D-AIOrg|148\.230\.108\.107|srv943133)' \
-            "$check_template_dir" 2>/dev/null | grep -v '\.git/' || true)
+            "$check_template_dir" 2>/dev/null \
+            | grep -v '\.git/' \
+            | grep -v "\-E '(jeltz" \
+            | grep -v 'tests/.*\.sh:.*echo.*Contact' \
+            || true)
 
         if [ -n "$hits" ]; then
             local leak_count
@@ -727,22 +736,74 @@ find_project_path() {
     fi
 }
 
+# ---- Stamp: refresh all manifest hashes to current values ----
+cmd_stamp() {
+    local manifest="$SCRIPT_DIR/template-sync-manifest.md"
+    if [ ! -f "$manifest" ]; then
+        log_warn "template-sync-manifest.md not found — nothing to stamp"
+        return 0
+    fi
+
+    if ! command -v python3 >/dev/null 2>&1; then
+        log_warn "python3 not found — cannot compute hashes"
+        return 1
+    fi
+
+    local refreshed=0 skipped=0
+    local tracked_files
+    tracked_files=$(grep -oP '^\| `[^`]+` \| `[0-9a-f]{8}`' "$manifest" | sed 's/^| `//;s/` | `/|/;s/`$//' || true)
+
+    local line file_path old_hash
+    while IFS= read -r line; do
+        [ -n "$line" ] || continue
+        file_path="${line%%|*}"
+        old_hash="${line##*|}"
+        [ -n "$file_path" ] && [ -n "$old_hash" ] || continue
+
+        local full_path="$SCRIPT_DIR/$file_path"
+        if [ ! -f "$full_path" ]; then
+            log_warn "Skipping $file_path — file not found"
+            skipped=$((skipped + 1))
+            continue
+        fi
+
+        local new_hash
+        new_hash=$(python3 -c "import binascii,sys;print(format(binascii.crc32(open(sys.argv[1],'rb').read())&0xFFFFFFFF,'08x'))" "$full_path")
+
+        if [ "$new_hash" != "$old_hash" ]; then
+            # Replace the old hash with new hash in the manifest (exact match on backtick-wrapped hash)
+            sed -i "s/\`$old_hash\`/\`$new_hash\`/" "$manifest"
+            log_info "Refreshed $file_path: $old_hash → $new_hash"
+            refreshed=$((refreshed + 1))
+        fi
+    done <<< "$tracked_files"
+
+    if [ "$refreshed" -gt 0 ]; then
+        log_info "Refreshed $refreshed hash(es) in template-sync-manifest.md"
+    else
+        log_info "All manifest hashes are current — nothing to refresh"
+    fi
+    [ "$skipped" -eq 0 ] || log_warn "Skipped $skipped missing file(s)"
+}
+
 # ---- Main ----
 case "${1:-help}" in
     setup)          cmd_setup ;;
     deploy)         cmd_deploy ;;
     collect)        cmd_collect ;;
     check)          shift; cmd_check "$@" ;;
+    stamp)          cmd_stamp ;;
     status)         cmd_status ;;
     mobile-deploy)  bash "$SCRIPT_DIR/setup/scripts/mobile-deploy.sh" ;;
     mobile-collect) bash "$SCRIPT_DIR/setup/scripts/mobile-deploy.sh" --collect ;;
     *)
-        echo "Usage: bash sync.sh {setup|deploy|collect|check|status|mobile-deploy|mobile-collect}"
+        echo "Usage: bash sync.sh {setup|deploy|collect|check|stamp|status|mobile-deploy|mobile-collect}"
         echo ""
         echo "  setup          — Replace live files with symlinks to repo (recommended, one-time)"
         echo "  deploy         — Copy from repo → live locations (for non-symlink setups)"
         echo "  collect        — Copy from live locations → repo (capture session edits)"
         echo "  check          — Check all propagation chains for drift/staleness"
+        echo "  stamp          — Refresh all manifest hashes to current values (after template sync)"
         echo "  status         — Show differences between repo and live"
         echo "  mobile-deploy  — Generate/refresh the mobile agent-fleet repo"
         echo "  mobile-collect — Merge mobile outbox tasks into cross-project inbox"
