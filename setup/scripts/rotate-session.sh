@@ -41,10 +41,9 @@ HAS_DECISIONS=$(printf '%s\n' "$CONTENT" | awk '/^##+ Key Decisions/{flag=1; nex
 
 # Require: goal AND (at least one completed item OR at least one decision)
 # Goal alone is not enough — prevents "Quick check" with zero content from creating garbage entries.
+# No goal = blank template (already rotated or never used) — exit silently, not an error.
 if [[ -z "$HAS_GOAL" ]]; then
-    echo "ERROR: session-context.md has no Session Goal — refusing to rotate."
-    echo "Set Session Goal (even if just 'No significant activity') before rotating."
-    exit 1
+    exit 0
 fi
 
 if [[ -z "$HAS_COMPLETED" && -z "$HAS_COMPLETED_SECTION" && -z "$HAS_DECISIONS" ]]; then
