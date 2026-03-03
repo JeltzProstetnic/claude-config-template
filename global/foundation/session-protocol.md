@@ -85,8 +85,10 @@ Session information is organized in 3 layers to balance startup speed with histo
 ### 0. Clean stale permissions
 - [ ] Run `bash ~/agent-fleet/setup/scripts/clean-permissions.sh` — removes "Always allow" permission blocks from project settings.local.json files that shadow global permissions and cause prompt storms during shutdown
 
-### 1. Session context
+### 1. Session context and work products
+- [ ] **Persist work products first.** If this session produced significant artifacts (maps, analysis results, generated data, exploration outputs, plans) that exist only in conversation context, write them to files NOW — before they're lost with the session. Recovery instructions that say "reference the X from this session" are worthless if X was never saved. Common culprits: subagent outputs, exploration results, dependency maps, architecture diagrams.
 - [ ] Update `session-context.md` with final state, completed work, and recovery instructions
+- [ ] Update this project's row in `~/agent-fleet/cross-project/dashboard-cache.md` — task counts (grep backlog), disk size (`du -sh`). Only update fields that changed.
 
 ### 2. Session rotation
 - [ ] Run `bash ~/agent-fleet/setup/scripts/rotate-session.sh` to archive session to history/log and reset template
@@ -121,7 +123,7 @@ Session information is organized in 3 layers to balance startup speed with histo
 
 1. **Always check for existing session-context.md on session start** - if found, read it to understand prior context
 2. **Never skip updates** - even for quick tasks, maintain the context file
-3. **Be concise but complete** - future you (or a new session) should be able to resume work
+3. **Be concise but complete** - future you (or a new session) should be able to resume work. If a subagent or exploration produced a significant work product (dependency map, architecture analysis, research findings), persist it to a file immediately — don't just reference it in session-context.md. Conversation context dies with the session; files survive.
 4. **Include recovery instructions** - assume the session could terminate at any moment
 5. **Update BEFORE responding** - write state before action, update after completion
 6. **Reference, don't duplicate** - point to canonical docs rather than copying their content

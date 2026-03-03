@@ -29,6 +29,34 @@ A project is considered new (and triggers full roster + skill discovery) when **
 
 ---
 
+## Suggested Startup Patterns
+
+During project setup, suggest domain-appropriate startup patterns for the project's `CLAUDE.md`. These are optional but recommended for specific project types.
+
+### Platform Scan (social / marketing / communications projects)
+
+**Suggest when:** project type is social media, marketing, communications, outreach, or PR.
+
+Add a "Session Startup — Platform Scan" section to the project's `CLAUDE.md` that runs after the standard loading protocol. The scan should:
+
+1. **Scan available platforms** for news, engagement targets, and opportunities:
+   - Twitter/X (search + mentions), LinkedIn (posts, messages), Gmail (via Google Workspace MCP), web (news, papers, blog posts)
+   - Scope platforms to the project's domain — not every project needs all platforms
+
+2. **Classify and route items:**
+   - Items actionable within this project → prepare in-session
+   - Items belonging to another project → post to cross-project inbox
+   - Ambiguous items → ask user
+
+3. **Prepare ready-to-use deliverables:**
+   - Copy-pastable content (tweet drafts, post drafts, reply text) → write to `tmp/` files
+   - Click lists (URLs for engagement actions) → write to `tmp/` files
+   - One best option per target (don't present multiple alternatives)
+
+4. **Cross-reference** targets against shared contact/engagement tracking files before drafting
+
+---
+
 ## Project Manifest Template
 
 Every project's `CLAUDE.md` follows this format:

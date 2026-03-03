@@ -52,7 +52,20 @@ If the roster doesn't fit:
 
 ## 3. Mid-Session Roster Adaptation
 
-A project can be **code AND authoring** — the same project may need different tooling depending on phase. When the work context shifts (prose → code, code → documents, adding PR/issue work, architectural design), acknowledge it: "This task would benefit from [agent/skill]. It's not in the current roster. Shall I add it? A restart will be needed."
+A project can be **code AND authoring** — the same project may need completely different tooling depending on phase. Monitor for context shifts:
+
+| Trigger | Action |
+|---------|--------|
+| User switches from writing prose to writing code | Need TDD agents, language specialists |
+| User switches from code to paper editing | Need publication workflow, maybe research agents |
+| User asks to create a PR or manage issues | Need GitHub MCP server |
+| User starts architectural design work | Need architecture/design agents |
+| Task requires research not well served by current agents | Add research-analyst or domain specialist |
+
+**When you detect a context shift:**
+1. Acknowledge the shift: "This task would benefit from [agent/skill]. It's not in the current roster."
+2. Offer to update: "Shall I add it? A restart will be needed."
+3. If user agrees, make the change and inform them.
 
 **Do NOT silently suffer with a mismatched roster.** If you need a tool you don't have, say so.
 
@@ -115,9 +128,36 @@ Skills are NOT subagents. They are **procedural knowledge** loaded into the curr
 Sources: `https://github.com/anthropics/skills` and `https://github.com/VoltAgent/awesome-agent-skills`. Clone locally for browsing, then copy to project.
 
 **Discovery is triggered only at specific moments**, not at every session start:
-- New project creation — browse catalog, select relevant skills
-- User asks explicitly — browse for the requested domain
-- Roster review reveals a gap — suggest browsing for the missing domain
+
+| Trigger | How to detect | Action |
+|---------|--------------|--------|
+| **New project creation** | Working directory is empty or has no `.claude/` | Full discovery: browse skill catalog, select relevant ones |
+| **User asks explicitly** | "What skills are available?", "Add skills for X" | Browse catalog for the requested domain |
+| **Roster review reveals gap** | Session-start check finds no skills but task would benefit | Suggest: "This project has no skills installed. Want me to browse available skills for [domain]?" |
+
+**Skill discovery should NOT happen:**
+- At every session start (context waste)
+- Mid-session unless the user asks or there's a clear gap
+- As a background process (too many results to be useful)
+
+### Skill Discovery Protocol
+
+When triggered:
+1. Check if skill collections are cloned locally:
+   ```bash
+   ls ~/.local/share/skill-collections/voltagent-skills/ 2>/dev/null
+   ls ~/.local/share/skill-collections/anthropic-skills/ 2>/dev/null
+   ```
+2. If not cloned, clone them:
+   ```bash
+   mkdir -p ~/.local/share/skill-collections/
+   git clone https://github.com/VoltAgent/awesome-agent-skills ~/.local/share/skill-collections/voltagent-skills/
+   git clone https://github.com/anthropics/skills ~/.local/share/skill-collections/anthropic-skills/
+   ```
+3. Browse the catalog by listing skill directories (names + one-line descriptions from frontmatter)
+4. Present a shortlist of relevant skills to the user
+5. On approval, copy selected skill folders to `<project>/.claude/skills/` or `~/.claude/skills/`
+6. Tell the user to restart
 
 ### Skill Installation
 
@@ -135,8 +175,17 @@ cp -r ~/.local/share/skill-collections/<collection>/<skill-name> ~/.claude/skill
 
 ## 7. MCP Servers as Roster Items
 
-MCP servers are defined in `~/.mcp.json` (global) or `<project>/.mcp.json` (per-project). Irrelevant servers consume startup time and add context waste. Prefer per-project `.mcp.json` with only what the current phase needs. Document which servers are relevant per session type in `session-context.md`. Restart required after changes.
+MCP servers are defined in `~/.mcp.json` (global) or `<project>/.mcp.json` (per-project). Common servers: **GitHub** (repo/PR/issue management), **Google Workspace** (Gmail, Docs, Calendar), **Serena** (semantic code navigation), **Playwright** (browser automation), **Postgres** (database queries).
 
-Common servers: **GitHub** (repo/PR/issue management), **Serena** (semantic code navigation).
+### MCP Roster Principle
+
+Not all MCP servers need to run for every session. Irrelevant servers:
+- Consume startup time
+- Add tool descriptions to context (context waste)
+- May cause confusion (Serena tools offered during pure authoring sessions)
+
+**Current limitation:** MCP servers are global, not per-project. Roster changes require editing `.mcp.json` and restarting. For now, accept this and document which servers are relevant per session type in session-context.md.
+
+**Future improvement:** Per-project `.mcp.json` with only the servers needed for that project's current phase.
 
 For troubleshooting and configuration details, see `~/.claude/reference/mcp-catalog.md`.

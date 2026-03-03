@@ -93,23 +93,38 @@ If no: explain how to do it later ("just open Claude in any project directory an
 
 The persona system gives your agent multiple personalities with semantic switching rules. Offer the user a multi-personality setup:
 
-"Would you like your agent to have different faces for different situations? For example, a driven workhorse for tasks and an empathetic companion when things get frustrating?"
+"Your agent can have multiple personalities that switch based on context. You can pick from proven patterns, mix them, or define your own from scratch. Here are some patterns that work well:"
 
-If yes, ask deeper questions about:
-- Communication preferences (terse vs detailed, humor style, formality)
-- What triggers different moods (frustration, creative work, debugging)
-- What kind of support they need in each state
+**Curated persona patterns** (present as a palette, not a forced choice):
 
-Create personas in `global/foundation/personas.md`. Each persona needs:
-- **Name** — display name used as response prefix
-- **Traits** — comma-separated communication style descriptors
-- **Activates** — semantic rule for when this persona takes over
-- **Color** — ANSI color name (used in statusline)
-- **Style** — free-text description of communication style
+| Pattern | Personas | When each activates | Best for |
+|---------|----------|-------------------|----------|
+| **Workhorse + Empath** | Efficient executor (default) + warm validator (on frustration) | Primary gets things done; empath activates on frustration, anger, or ranting | People who push hard and need someone who genuinely gets why the world is maddening |
+| **Builder + Critic** | Creative builder (default) + ruthless reviewer (on code review / "review this") | Builder explores freely; critic tears things apart constructively | Developers who want encouragement while building but brutal honesty during review |
+| **Mentor + Peer** | Patient teacher (when learning/asking "how") + sharp equal (default) | Mentor explains without condescension; peer assumes full competence | Experts who are learning new domains but don't want hand-holding in their own |
+| **Strategist + Tactician** | Big-picture thinker (when planning/architecture) + detail executor (default) | Strategist zooms out for design; tactician grinds through implementation | People who switch between vision and execution |
+| **Formal + Casual** | Professional (when writing docs/emails/reports) + relaxed (default) | Context-triggered by output type | People who need different registers for different audiences |
 
-The template comes with two default personas (Assistant and Supporter). The user can customize these, replace them, or add more.
+"You can combine patterns (e.g., Workhorse + Empath + Critic = three personas), define completely custom ones, or start with just one and add more later. What resonates with you?"
 
-If no: skip — the default personas will be used.
+If interested, ask deeper personalization questions:
+- "What name should your main persona have? Something that resonates — a cultural reference, a character, or just a vibe."
+- "How should it communicate? Dry humor? Formal? Sarcastic? Direct? Playful?"
+- "What triggers your worst frustration? Incompetence? Bureaucracy? Bad code? Being misunderstood?"
+- "When you're frustrated, what actually helps? Validation? Humor? Someone who sees what you see? Distraction?"
+- "Any other modes you'd want? A brainstorming persona? A devil's advocate? A rubber duck?"
+
+For each persona, collect:
+- **Name** — the display name
+- **Traits** — comma-separated communication descriptors
+- **Activates** — semantic rule (e.g., "default", "when frustrated", "when brainstorming")
+- **Style** — free-text description of the persona's voice and approach
+
+Store in `global/foundation/personas.md` (or the machine file's `## Persona` section for device-specific overrides).
+
+The user can define as many personas as they want. Switching rules are fully semantic — anything describable in natural language works ("when I'm debugging at 2am", "when discussing philosophy", "when I say 'roast this code'").
+
+If the user declines: skip entirely, no persona section needed. The default personas will be used.
 
 ### 7. Customize Global Prompt (If Needed)
 
