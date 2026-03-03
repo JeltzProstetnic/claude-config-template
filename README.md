@@ -266,19 +266,17 @@ agent-fleet/
 |   |-- machines/                  Per-computer configuration
 |   `-- hooks/                     SessionStart/End automation
 |
-|-- tests/
-|   |-- run.sh                     Test runner
-|   `-- test_*.sh                  Individual suites
-|
 |-- setup/
 |   |-- install-base.sh            Phase 1: system deps, Node.js
 |   |-- configure-claude.sh        Phase 2: MCP, launchers, hooks
 |   |-- lib.sh                     Shared utilities (multi-distro detection)
 |   |-- config/                    Template configs
-|   `-- scripts/                   Operational scripts (rotation, dashboard, etc.)
-|
-|-- projects/
-|   `-- _example/rules/CLAUDE.md   Example project config
+|   |-- scripts/                   Operational scripts (rotation, dashboard, etc.)
+|   |-- projects/
+|   |   `-- _example/rules/CLAUDE.md   Example project config
+|   `-- tests/
+|       |-- run.sh                 Test runner
+|       `-- test-*.sh              Individual suites
 |
 `-- cross-project/
     |-- inbox.md                   Task passing between projects
@@ -332,7 +330,7 @@ Add your own: copy `global/domains/_template/`, edit it, reference it from your 
 
 ### Test Suite
 
-125 tests across 10 suites, run via `tests/run.sh`:
+125 tests across 10 suites, run via `setup/tests/run.sh`:
 
 | Suite | Tests | Covers |
 |-------|------:|--------|

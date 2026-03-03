@@ -13,7 +13,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GLOBAL_DIR="$SCRIPT_DIR/global"
-PROJECTS_DIR="$SCRIPT_DIR/projects"
+PROJECTS_DIR="$SCRIPT_DIR/setup/projects"
 
 # Detect platform
 if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -672,8 +672,8 @@ cmd_check() {
     # ── 5. Project rule drift (repo vs deployed) ─────────────────────────
     log_info "Checking project rule drift..."
     local rule_drift=0
-    if [ -d "$check_repo_root/projects" ]; then
-        for project_dir in "$check_repo_root/projects"/*/; do
+    if [ -d "$check_repo_root/setup/projects" ]; then
+        for project_dir in "$check_repo_root/setup/projects"/*/; do
             [ -d "$project_dir" ] || continue
             local project_name
             project_name=$(basename "$project_dir")

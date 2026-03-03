@@ -13,7 +13,7 @@ CURRENT_TEST=""
 TEST_FAILURES=()
 TEST_TMPDIR=""
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # ── Colors ───────────────────────────────────────────────────────────────────
 if [[ -t 1 ]] && [[ "${NO_COLOR:-}" != "1" ]]; then

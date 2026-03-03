@@ -121,7 +121,7 @@ COLLECT_OUTPUT=$(bash "$CONFIG_REPO/sync.sh" collect 2>&1) || sync_fail "collect
 
 # Stage only expected directories and files — avoid staging unintended changes
 git add session-context.md session-history.md 2>/dev/null || true
-git add docs/ projects/ cross-project/ 2>/dev/null || true
+git add docs/ setup/projects/ cross-project/ 2>/dev/null || true
 git add global/ backlog.md registry.md template-sync-manifest.md 2>/dev/null || true
 git diff --cached --quiet 2>/dev/null && sync_success  # Nothing to sync
 

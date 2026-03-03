@@ -47,9 +47,9 @@ test_blank_template_no_goal() {
 EOF
     local rc=0
     bash "$ROTATE_SCRIPT" "$TEST_TMPDIR" 2>&1 || rc=$?
-    assert_eq "1" "$rc" "should exit 1 for blank template"
+    assert_eq "0" "$rc" "should exit 0 silently for blank template (no-op, not error)"
 }
-run_test "rejects blank template (no goal)" test_blank_template_no_goal
+run_test "exits silently on blank template (no goal)" test_blank_template_no_goal
 
 test_goal_but_no_content() {
     # Has a goal but no completed items and no decisions
