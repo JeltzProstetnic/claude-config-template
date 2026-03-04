@@ -51,9 +51,14 @@ local_hostname_map() {
 HEADER
             # Extract the case block from sync.sh (case "$hn" in ... esac)
             # Use awk to capture between 'case "$hn"' and the matching 'esac'
+            # Convert 'machine_file="X"' assignments to 'echo "X"' for command substitution
             awk '
                 /case "\$hn" in/ { capture=1 }
-                capture { print "    " $0 }
+                capture {
+                    line = $0
+                    gsub(/machine_file=/, "echo ", line)
+                    print "    " line
+                }
                 capture && /esac/ { capture=0 }
             ' "$REPO_DIR/sync.sh"
 
@@ -92,6 +97,10 @@ if [[ ! -f "$PERSONAS_LOCAL" ]] && [[ -f "$PERSONAS" ]]; then
         # Move current personas to local file
         cp "$PERSONAS" "$PERSONAS_LOCAL"
         log_info "Created personas.local.md with user personas"
+
+        # Backup before destructive overwrite
+        cp "$PERSONAS" "${PERSONAS}.bak"
+        log_info "Backed up personas.md → personas.md.bak"
 
         # Replace personas.md with framework defaults + @import
         cat > "$PERSONAS" << 'FWEOF'

@@ -62,6 +62,29 @@ if [[ -z "$HAS_COMPLETED" && -z "$HAS_COMPLETED_SECTION" && -z "$HAS_DECISIONS" 
     exit 1
 fi
 
+# --- Fix A: Detect dangling forward references ---
+# Patterns that suggest session-context references its own content:
+#   "see below", "see ##", "see the ... section", "(below)"
+# These become dangling pointers after rotation. Warn but don't block.
+DANGLING_REFS=$(printf '%s\n' "$CONTENT" | grep -inE 'see below|see ##|see the .+ section|\(below\)' || true)
+if [[ -n "$DANGLING_REFS" ]]; then
+    echo "WARNING: session-context.md contains forward references that will become dangling after rotation:" >&2
+    echo "$DANGLING_REFS" >&2
+    echo "" >&2
+    echo "Consider saving the referenced content to a dedicated file before rotating." >&2
+    echo "" >&2
+fi
+
+# --- Fix B: Extract ## Next Session Task section ---
+NEXT_TASK_FILE="$PROJECT_DIR/next-session-task.md"
+NEXT_TASK_CONTENT=$(printf '%s\n' "$CONTENT" | awk '/^## Next Session Task/{flag=1; next} /^## /{flag=0} flag' | sed '/^$/d' || true)
+if [[ -n "$NEXT_TASK_CONTENT" ]]; then
+    printf '%s\n' "$NEXT_TASK_CONTENT" > "$NEXT_TASK_FILE"
+    echo "Extracted ## Next Session Task to next-session-task.md."
+else
+    printf 'task: false\n' > "$NEXT_TASK_FILE"
+fi
+
 # --- Parse session-context.md ---
 
 # Extract Last Updated timestamp

@@ -52,9 +52,19 @@ fi
 log_info "Fetching upstream..."
 git -C "$REPO_DIR" fetch upstream >/dev/null 2>&1
 
+# Detect upstream default branch (main or master)
+if git -C "$REPO_DIR" rev-parse --verify "upstream/main" &>/dev/null; then
+    UPSTREAM_BRANCH="main"
+elif git -C "$REPO_DIR" rev-parse --verify "upstream/master" &>/dev/null; then
+    UPSTREAM_BRANCH="master"
+else
+    log_error "Cannot determine upstream default branch (tried main, master)"
+    exit 1
+fi
+
 # ── 5. Read upstream version ─────────────────────────────────────────────────
 
-UPSTREAM_VERSION=$(git -C "$REPO_DIR" show upstream/main:.agent-fleet-version 2>/dev/null || echo "0.0")
+UPSTREAM_VERSION=$(git -C "$REPO_DIR" show "upstream/$UPSTREAM_BRANCH:.agent-fleet-version" 2>/dev/null || echo "0.0")
 log_info "Upstream version: $UPSTREAM_VERSION"
 
 if [[ "$CURRENT_VERSION" == "$UPSTREAM_VERSION" ]]; then
@@ -69,7 +79,7 @@ fi
 
 if [[ "$DRY_RUN" == "true" ]]; then
     log_info "[DRY RUN] Would upgrade $CURRENT_VERSION → $UPSTREAM_VERSION"
-    log_info "[DRY RUN] Would merge upstream/main and run pending migrations"
+    log_info "[DRY RUN] Would merge upstream/$UPSTREAM_BRANCH and run pending migrations"
     if [[ "$STASHED" == "true" ]]; then
         git -C "$REPO_DIR" stash pop >/dev/null 2>&1
     fi
@@ -78,8 +88,8 @@ fi
 
 # ── 7. Merge upstream ────────────────────────────────────────────────────────
 
-log_info "Merging upstream/main..."
-if ! git -C "$REPO_DIR" merge upstream/main --no-edit 2>&1; then
+log_info "Merging upstream/$UPSTREAM_BRANCH..."
+if ! git -C "$REPO_DIR" merge "upstream/$UPSTREAM_BRANCH" --no-edit 2>&1; then
     log_error "Merge conflict! Resolve manually, then re-run: bash upgrade.sh"
     log_error "Your stash (if any) is preserved. Run 'git stash pop' after resolving."
     exit 1
@@ -93,8 +103,8 @@ if [[ -d "$REPO_DIR/migrations" ]]; then
         # Extract version from filename (v0.3.sh → 0.3)
         m_version=$(basename "$migration" .sh | sed 's/^v//')
 
-        # Run if migration version > current version (awk float comparison)
-        if awk "BEGIN{exit ($m_version > $CURRENT_VERSION ? 0 : 1)}" 2>/dev/null; then
+        # Run if migration version > current version (sort -V for semver-safe comparison)
+        if [[ "$(printf '%s\n%s' "$CURRENT_VERSION" "$m_version" | sort -V | head -1)" != "$m_version" ]] && [[ "$m_version" != "$CURRENT_VERSION" ]]; then
             log_info "Running migration v${m_version}..."
             bash "$migration" "$REPO_DIR"
         else
