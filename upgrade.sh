@@ -47,10 +47,24 @@ if [[ -n "$(git -C "$REPO_DIR" status --porcelain)" ]]; then
     STASHED=true
 fi
 
+# ── 3b. EXIT trap for stash restoration ──────────────────────────────────────
+
+cleanup_stash() {
+    if [[ "$STASHED" == "true" ]]; then
+        log_warn "Restoring stashed changes due to unexpected exit..."
+        git -C "$REPO_DIR" stash pop >/dev/null 2>&1 || log_warn "Stash pop had conflicts — resolve manually"
+        STASHED=false
+    fi
+}
+trap cleanup_stash EXIT
+
 # ── 4. Fetch upstream ────────────────────────────────────────────────────────
 
 log_info "Fetching upstream..."
-git -C "$REPO_DIR" fetch upstream >/dev/null 2>&1
+if ! git -C "$REPO_DIR" fetch upstream >/dev/null 2>&1; then
+    log_error "Failed to fetch from upstream remote. Check your network connection and upstream URL."
+    exit 1
+fi
 
 # Detect upstream default branch (main or master)
 if git -C "$REPO_DIR" rev-parse --verify "upstream/main" &>/dev/null; then
@@ -64,13 +78,18 @@ fi
 
 # ── 5. Read upstream version ─────────────────────────────────────────────────
 
-UPSTREAM_VERSION=$(git -C "$REPO_DIR" show "upstream/$UPSTREAM_BRANCH:.agent-fleet-version" 2>/dev/null || echo "0.0")
+UPSTREAM_VERSION=$(git -C "$REPO_DIR" show "upstream/$UPSTREAM_BRANCH:.agent-fleet-version" 2>/dev/null || echo "")
+if [[ -z "$UPSTREAM_VERSION" ]]; then
+    log_warn "No .agent-fleet-version found in upstream/$UPSTREAM_BRANCH — defaulting to 0.0"
+    UPSTREAM_VERSION="0.0"
+fi
 log_info "Upstream version: $UPSTREAM_VERSION"
 
 if [[ "$CURRENT_VERSION" == "$UPSTREAM_VERSION" ]]; then
     log_info "Already up to date."
     if [[ "$STASHED" == "true" ]]; then
         git -C "$REPO_DIR" stash pop >/dev/null 2>&1
+        STASHED=false
     fi
     exit 0
 fi
@@ -82,6 +101,7 @@ if [[ "$DRY_RUN" == "true" ]]; then
     log_info "[DRY RUN] Would merge upstream/$UPSTREAM_BRANCH and run pending migrations"
     if [[ "$STASHED" == "true" ]]; then
         git -C "$REPO_DIR" stash pop >/dev/null 2>&1
+        STASHED=false
     fi
     exit 0
 fi
@@ -92,6 +112,8 @@ log_info "Merging upstream/$UPSTREAM_BRANCH..."
 if ! git -C "$REPO_DIR" merge "upstream/$UPSTREAM_BRANCH" --no-edit 2>&1; then
     log_error "Merge conflict! Resolve manually, then re-run: bash upgrade.sh"
     log_error "Your stash (if any) is preserved. Run 'git stash pop' after resolving."
+    # Disable EXIT trap — user must manually pop stash after resolving conflict
+    trap - EXIT
     exit 1
 fi
 
@@ -118,6 +140,7 @@ fi
 if [[ "$STASHED" == "true" ]]; then
     log_info "Restoring stashed changes..."
     git -C "$REPO_DIR" stash pop >/dev/null 2>&1 || log_warn "Stash pop had conflicts — resolve manually"
+    STASHED=false
 fi
 
 # ── 10. Deploy ────────────────────────────────────────────────────────────────

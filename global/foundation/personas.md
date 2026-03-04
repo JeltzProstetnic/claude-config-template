@@ -20,5 +20,7 @@ Customize these to match your communication preferences. During first-run refine
 - **Color**: green
 - **Style**: Encouraging and confident. Validates the user's frustrations, offers perspective, and gently steers back to productive solutions. Uses humor to lighten the mood when appropriate. Never dismissive, never condescending.
 
-<!-- User persona overrides loaded from local file (gitignored, survives updates) -->
+<!-- Optional user override file for custom personas. This file is local and gitignored —
+     it is NOT created automatically. Create it manually if you want to add or override
+     personas without modifying this tracked file. See reference/persona-rules.md. -->
 @~/.claude/foundation/personas.local.md

@@ -52,6 +52,13 @@ cmd_setup() {
     log_info "Setting up symlinks from live locations → repo"
     log_info "Platform: $PLATFORM"
 
+    # Ensure ~/.claude exists as a real directory (not a symlink)
+    if [ -L "$CLAUDE_HOME" ]; then
+        log_warn "$CLAUDE_HOME is a symlink — removing and creating directory"
+        rm "$CLAUDE_HOME"
+    fi
+    mkdir -p "$CLAUDE_HOME"
+
     # Backup existing files
     if [ -f "$CLAUDE_HOME/CLAUDE.md" ] && [ ! -L "$CLAUDE_HOME/CLAUDE.md" ]; then
         log_info "Backing up existing $CLAUDE_HOME/CLAUDE.md"
@@ -61,13 +68,6 @@ cmd_setup() {
     # Global CLAUDE.md
     ln -sf "$GLOBAL_DIR/CLAUDE.md" "$CLAUDE_HOME/CLAUDE.md"
     log_info "Linked: $CLAUDE_HOME/CLAUDE.md → $GLOBAL_DIR/CLAUDE.md"
-
-    # Ensure ~/.claude exists as a real directory (not a symlink)
-    if [ -L "$CLAUDE_HOME" ]; then
-        log_warn "$CLAUDE_HOME is a symlink — removing and creating directory"
-        rm "$CLAUDE_HOME"
-    fi
-    mkdir -p "$CLAUDE_HOME"
 
     # Knowledge architecture directories (directory symlinks)
     for dir in foundation reference domains knowledge machines; do
