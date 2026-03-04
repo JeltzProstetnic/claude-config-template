@@ -74,7 +74,7 @@ The cleanup script handles TWO problems:
 
 ### GitHub MCP
 - Auth: `GITHUB_PERSONAL_ACCESS_TOKEN` env var
-- Multi-org: separate server entries for different PATs (e.g., `github` vs `github_ivoclar`)
+- Multi-org: separate server entries for different PATs (e.g., `github` vs `github_work`)
 - **DEPRECATED:** `@modelcontextprotocol/server-github` (npm) still works but is no longer maintained
 - **Replacement:** `github/github-mcp-server` (Go-based) — requires Docker or Go. Migration pending.
 - The old npx server emits deprecation warnings but functions correctly (26 tools)

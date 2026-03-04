@@ -12,14 +12,14 @@ Project operations (shutdown checklist) update individual rows.
 | social | P1 | — | ~/social | marketing/engagement | 2P1 9P2 6P3 1P4 | 896K |  | Days 6-14|Trends in Cognitive Sciences — FMT indicator submission | Bach QT + Day 7 posted, workflow rules fixed |
 | muse | P2 | — | ~/muse | code | — | — |  |  |  |
 | batch_langextract | P2 | — | ~/batch_langextract | code (d) | — | — |  |  |  |
-| ivoclar | P2 | — | ~/ivoclar | tooling/integration | — | — |  |  |  |
+| work-tools | P2 | — | ~/work-tools | tooling/integration | — | — |  |  |  |
 | infrastructure | P2 | — | ~/infrastructure | infra/config | 1P1 1P2 4P3 3P4 | 26M |  | Clear HA IP ban | HA lockout diagnosed, SSH keys missing on Deck |
 | mirror-box | P2 | aIware | ~/mirror-box | code | — | — |  |  | Unicode diagram in README, proper diagrams tracked for WSL |
 | agent-fleet | P3 | cfg-agent-fleet | ~/agent-fleet | meta/config | 1P2 1P3 | 2.7M |  |  |  |
 | ai2do | P3 | — | ~/ai2do | code | — | — |  |  |  |
 | crucible | P3 | aIware | ~/crucible | code | — | — |  |  |  |
-| regulatory | P3 | ivoclar | ~/ivoclar/regulatory | business/process | — | — |  |  |  |
-| tsveta | P3 | ivoclar | ~/ivoclar/tsveta | business/research | — | — |  |  |  |
+| regulatory | P3 | work-tools | ~/work-tools/regulatory | business/process | — | — |  |  |  |
+| research-collab | P3 | work-tools | ~/work-tools/research-collab | business/research | — | — |  |  |  |
 | searxng | P3 | — | ~/searxng | infra | — | — |  |  |  |
 | domrp | P4 | — | ~/domrp | code | — | — |  |  |  |
 | mails | P4 | — | ~/mails | data/authoring | — | — |  |  |  |

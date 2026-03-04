@@ -353,19 +353,26 @@ apply_project_icons() {
 # ---- PERSONAL DATA LEAK CHECK ----
 # Scans the template repo for patterns that suggest personal data leaked into public files.
 # Warns but does not block — manual review required.
+#
+# Customize: set PERSONAL_DATA_PATTERNS in sync.local.sh as a grep -E regex.
+# Example: PERSONAL_DATA_PATTERNS='(your-email@example\.com|your-username|your-ip-address)'
 check_personal_data_leaks() {
     local template_dir="$HOME/agent-fleet"
     [ -d "$template_dir" ] || return 0  # Template not on this machine
 
+    # Patterns must be configured by the user — skip if empty
+    local pattern="${PERSONAL_DATA_PATTERNS:-}"
+    if [[ -z "$pattern" ]]; then
+        return 0
+    fi
+
     local leak_count=0
-    # Patterns: email addresses, known personal identifiers, account names
-    # Exclude .git directory and binary files
     local hits
     hits=$(grep -rn --include='*.md' --include='*.sh' --include='*.json' --include='*.yml' --include='*.yaml' \
-        -E '(jeltz\.prostetnic|matthiasgruber\.com|matthias@|JeltzProstetnic|GrubMat|IvoclarR-D-AIOrg|148\.230\.108\.107|srv943133)' \
+        -E "$pattern" \
         "$template_dir" 2>/dev/null \
         | grep -v '\.git/' \
-        | grep -v "\-E '(jeltz" \
+        | grep -v "PERSONAL_DATA_PATTERNS" \
         | grep -v 'tests/.*\.sh:.*echo.*Contact' \
         || true)
 
@@ -663,14 +670,16 @@ cmd_check() {
     fi
 
     # ── 2. Personal data leak check ──────────────────────────────────────
-    if [ -d "$check_template_dir" ]; then
+    # Patterns must be configured by user in sync.local.sh (PERSONAL_DATA_PATTERNS)
+    local pattern="${PERSONAL_DATA_PATTERNS:-}"
+    if [ -d "$check_template_dir" ] && [ -n "$pattern" ]; then
         log_info "Checking template for sensitive patterns..."
         local hits
         hits=$(grep -rn --include='*.md' --include='*.sh' --include='*.json' --include='*.yml' --include='*.yaml' \
-            -E '(jeltz\.prostetnic|matthiasgruber\.com|matthias@|JeltzProstetnic|GrubMat|IvoclarR-D-AIOrg|148\.230\.108\.107|srv943133)' \
+            -E "$pattern" \
             "$check_template_dir" 2>/dev/null \
             | grep -v '\.git/' \
-            | grep -v "\-E '(jeltz" \
+            | grep -v "PERSONAL_DATA_PATTERNS" \
             | grep -v 'tests/.*\.sh:.*echo.*Contact' \
             || true)
 
