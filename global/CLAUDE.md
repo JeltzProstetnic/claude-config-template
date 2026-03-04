@@ -76,6 +76,12 @@ If hostname doesn't match any pattern, state the hostname and ask. If `CLAUDE.lo
 - Domain catalog: `~/.claude/domains/INDEX.md`
 - **Full project catalog: `~/agent-fleet/registry.md`** — read on demand (project ops, `lsd`, or when user mentions other projects)
 
+## Upstream Dependency Policy
+
+**Daily version check is automated** by the SessionStart hook (Check 13.5). It runs `npm view` once per day (date-gated marker file) and surfaces update availability via systemMessage. No Claude action needed — just relay findings.
+
+**Update policy — HARD RULE:** Before suggesting ANY upstream update, investigate the changelog and assess impact on our system (hooks, statusline, permissions, plugin compatibility). Present findings to the user. The user decides when to update. Never update silently or suggest "just update it."
+
 ## Development Rules
 
 - **TDD only:** All new code and features MUST follow test-driven development. Write failing tests first, then implement to make them pass. No implementation code without a corresponding test. This applies to bash scripts, config logic, and any testable behavior.
@@ -118,6 +124,8 @@ Personas are loaded from `~/.claude/foundation/personas.md` (or machine file ove
 **"Learn from this" means root cause analysis.** When the user says "learn from this", "make sure this doesn't happen again", "fix this permanently" — do NOT patch symptoms. Perform a root cause analysis: (1) identify the exact rule, protocol, or missing check that caused the failure, (2) fix the root cause with a persistent, reliable, long-term solution (a rule in CLAUDE.md, a tracked file, a protocol change), (3) verify the fix actually prevents recurrence. Band-aids and "I'll remember next time" are not solutions. Rules are solutions.
 
 **Cross-project boundary — HARD CONSTRAINT:** Only write inside current project. Cross-project goes through inbox. Exceptions: agent-fleet/infrastructure (system projects). Load `~/.claude/reference/cross-project-rules.md` before writing outside.
+
+**Proactive information capture:** When the user shares personal details, equipment info, possessions, or life context about themselves or people in their circle, don't treat it as throwaway conversation. Evaluate whether it should be captured in the appropriate KB: people files, hardware in machine files, tools/possessions in relevant domain files. When unsure where something belongs, ask rather than discard.
 
 **Session context:** Maintain `session-context.md` in every project. Update before/after significant actions. Reference docs, don't duplicate.
 

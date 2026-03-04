@@ -374,6 +374,7 @@ check_personal_data_leaks() {
         | grep -v '\.git/' \
         | grep -v "PERSONAL_DATA_PATTERNS" \
         | grep -v 'tests/.*\.sh:.*echo.*Contact' \
+        | grep -v 'github\.com/.*/agent-fleet\.git' \
         || true)
 
     if [ -n "$hits" ]; then
@@ -426,13 +427,13 @@ check_template_drift() {
         current_hash=$(python3 -c "import binascii,sys;print(format(binascii.crc32(open(sys.argv[1],'rb').read())&0xFFFFFFFF,'08x'))" "$full_path")
 
         if [ "$current_hash" != "$hash" ]; then
-            log_warn "$file_path changed since last template sync (was: $hash, now: $current_hash)"
+            log_warn "$file_path: hash stale ($hash → $current_hash). Propagate structural changes, then run 'sync.sh stamp'"
             drift_count=$((drift_count + 1))
         fi
     done <<< "$tracked_files"
 
     if [ "$drift_count" -gt 0 ]; then
-        log_warn "$drift_count file(s) drifted. Review template-sync-manifest.md and propagate to template."
+        log_warn "$drift_count file(s) drifted. Review and propagate to template."
     fi
 }
 
@@ -656,7 +657,7 @@ cmd_check() {
             current_hash=$(python3 -c "import binascii,sys;print(format(binascii.crc32(open(sys.argv[1],'rb').read())&0xFFFFFFFF,'08x'))" "$full_path")
 
             if [ "$current_hash" != "$hash" ]; then
-                log_warn "$file_path drifted (was: $hash, now: $current_hash)"
+                log_warn "$file_path: hash stale ($hash → $current_hash). Propagate structural changes, then run 'sync.sh stamp'"
                 drift_count=$((drift_count + 1))
             fi
         done <<< "$tracked_files"
@@ -681,6 +682,7 @@ cmd_check() {
             | grep -v '\.git/' \
             | grep -v "PERSONAL_DATA_PATTERNS" \
             | grep -v 'tests/.*\.sh:.*echo.*Contact' \
+            | grep -v 'github\.com/.*/agent-fleet\.git' \
             || true)
 
         if [ -n "$hits" ]; then

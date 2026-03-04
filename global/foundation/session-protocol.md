@@ -15,31 +15,7 @@ The session context file should be at: `./session-context.md` (relative to curre
 
 ## Required Content Structure
 
-```markdown
-# Session Context
-
-## Session Info
-- **Last Updated**: [ISO timestamp]
-- **Machine**: [machine-id]
-- **Working Directory**: [path]
-- **Session Goal**: [current high-level objective]
-
-## Current State
-- **Active Task**: [what you're currently working on]
-- **Progress** (use `- [x]` checkbox for each completed item):
-  - [x] Example completed step
-  - [ ] Example pending step
-- **Pending**: [remaining steps]
-
-## Key Decisions
-- [Decision]: [rationale] (record significant decisions made this session)
-
-## Recovery Instructions
-[If session terminates, here's how to resume:]
-1. [Step to continue from current state]
-2. [Next action needed]
-3. [Any pending verifications]
-```
+Use the exact template from `session-context.md` (reset by `rotate-session.sh`). Required fields: `**Session Goal**:` inline, `- [x]` checkboxes for completed items, `## Key Decisions` section. The rotation script parses these programmatically — freeform headings or plain bullets won't be detected.
 
 ## Session Documentation Layers
 
@@ -47,6 +23,7 @@ Session information is organized in 3 layers to balance startup speed with histo
 
 | Layer | File | Read at startup? | Purpose |
 |-------|------|-------------------|---------|
+| 0 | `next-session-task.md` | YES — if exists | Previous session's task handoff |
 | 1 | `session-context.md` | YES | Current session state |
 | 2 | `session-history.md` | NO — on demand | Rolling last 3 sessions |
 | 3a | `docs/session-log.md` | NO — reference only | Full archive, never pruned |
@@ -128,3 +105,5 @@ Session information is organized in 3 layers to balance startup speed with histo
 5. **Update BEFORE responding** - write state before action, update after completion
 6. **Reference, don't duplicate** - point to canonical docs rather than copying their content
 7. **Session-context.md MUST use the exact template format** — `rotate-session.sh` parses it programmatically. Required: `**Session Goal**:` inline (not a heading), `- [x]` checkboxes for completed items, `## Key Decisions` section heading. Do NOT use freeform headings like `## What Was Done` or plain bullets without checkboxes — the rotation script won't detect them and will refuse to archive. At minimum: fill in Session Goal + at least one `- [x]` item or one decision under Key Decisions.
+8. **Cross-session task handoff:** Add `## Next Session Task` to session-context.md with `task: true`, `file:`, and `description:`. Rotation extracts it to `next-session-task.md`. **HARD RULE: `file:` must NEVER point to `session-context.md`** — rotation blanks it, so the next session would find an empty file. Always write handoff data to a dedicated file in `docs/` (e.g., `docs/pending-<task>.md`) and point `file:` there. Never use `tmp/` — handoff files must persist across machines via git. This includes task lists, pending updates, execution plans — anything the next session needs to act on.
+9. **Dangling references:** Rotation warns on "see below"/"see ##"/"(below)" — save referenced content to a file first.

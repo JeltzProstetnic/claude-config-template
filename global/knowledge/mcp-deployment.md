@@ -56,6 +56,22 @@ The cleanup script handles TWO problems:
 1. **External plugin directories**: Marketplace auto-installs third-party plugins (asana, stripe, etc.) that duplicate our MCP servers or are useless. Script removes all except `KEEP_PLUGINS` allowlist.
 2. **Stale enabledPlugins entries**: `settings.json` can accumulate references to plugins from non-existent marketplaces (e.g., community marketplace entries). These cause "N plugins failed to install" errors at startup. Script removes entries from any marketplace other than `claude-plugins-official`.
 
+## npx-based MCP Servers — Fragility Pattern
+
+npx-based servers (`npx -y <package>`) have a recurring failure mode:
+
+1. **Cache refresh loses patches.** Any local patch (sed replacements in `~/.npm/_npx/`) is wiped when npx refreshes the cache (version change, cache corruption, Node.js upgrade).
+2. **Cache refresh can break transitive deps.** Heavy dependencies like `jsdom` may not resolve correctly after a fresh fetch.
+3. **Version drift.** Without pinning, `npx -y <package>` pulls latest — which may rename env vars, change APIs, or introduce new bugs.
+
+**MCP health checks guidance:** Per-session health checks are too expensive in tokens when servers are stable (which is most of the time). If implemented, MUST be date-gated (once per day max, like upstream version checks), not per-session. Breakages are rare enough that reactive detection + documented recovery playbooks are more cost-effective than proactive probing.
+
+**Mitigations:**
+- **Always pin versions** in `.mcp.json` args: `some-server@2.1.0`, not `some-server`
+- **Document patches** in `~/.claude/knowledge/<server>.md` with exact sed commands and verification steps
+- **After any Node.js update or npx cache issue:** re-apply all patches, test with live tool calls
+- **Long-term for patched servers:** consider local install (`npm install <package>@<version>` in a dedicated dir) instead of npx — immune to cache refresh
+
 ## Known server-specific notes
 
 ### Serena (code navigation)
