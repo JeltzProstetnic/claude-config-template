@@ -188,8 +188,8 @@ cmd_deploy() {
     # Clean unwanted marketplace plugins (auto-installed by Claude Code)
     clean_marketplace_plugins
 
-    # Deploy settings (merge base + override if present)
-    deploy_settings
+    # Validate settings merge (actual deploy is manual / check_settings_health validates live)
+    validate_settings_merge
 
     # Check live settings.json for missing critical blocks
     check_settings_health
@@ -210,7 +210,7 @@ clean_marketplace_plugins() {
     fi
 }
 
-deploy_settings() {
+validate_settings_merge() {
     local base="$SCRIPT_DIR/setup/config/settings.json"
     local override="$SCRIPT_DIR/setup/config/settings.override.json"
 
@@ -241,9 +241,9 @@ print(json.dumps(base, indent=2))
     else
         # No override — use base as-is (substitute __HOME__)
         sed "s|__HOME__|$HOME|g" "$base"
-    fi > /dev/null  # Settings are deployed by check_settings_health, not here
-    # Note: actual settings deployment is handled by check_settings_health
-    # This function just validates the merge works. Full deploy TBD.
+    fi > /dev/null  # Validation only — checks that merge succeeds without writing anywhere
+    # Actual settings live at ~/.cc-mirror/mclaude/config/settings.json (deployed by initial setup).
+    # check_settings_health validates the live file has critical blocks.
 }
 
 deploy_hooks() {
