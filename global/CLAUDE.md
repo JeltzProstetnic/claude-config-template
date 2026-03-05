@@ -66,6 +66,7 @@ If hostname doesn't match any pattern, state the hostname and ask. If `CLAUDE.lo
    - Email drafts, social posts, or formal correspondence: `~/.claude/reference/communication-policy.md`
    - Writing outside current project, cross-project sync, filtered push: `~/.claude/reference/cross-project-rules.md`
    - Tool-specific operational issues: `~/.claude/knowledge/<tool>.md` (check INDEX for available files)
+   - `lrn`/`learn` command issued: `~/.claude/knowledge/learn-protocol.md`
 
 6. **Check for project-specific knowledge**: `ls <project>/.claude/knowledge/` or `<project>/.claude/*.md`
 
@@ -134,6 +135,7 @@ Personas are loaded from `~/.claude/foundation/personas.md` (or machine file ove
 | `cls` | Execute full 7-step shutdown checklist, then say "Shutdown complete — run /clear whenever you're ready." **If `cls` is the user's very first message**, skip the startup checklist entirely — the user is switching projects and doesn't need full context loading. Just run shutdown. Only run the startup checklist afterward if the user stays in the current project (i.e., sends a follow-up task instead of `/clear`). |
 | `end` | Execute full 7-step shutdown checklist, then say "Shutdown complete — you can exit now." |
 | `lsd` | **Project dashboard.** Load `~/.claude/reference/lsd-spec.md` first, then render. |
+| `lrn` / `learn` | **Self-audit.** Load `~/.claude/knowledge/learn-protocol.md`, then execute. Launches parallel subagents to check rule compliance, capture uncaptured knowledge, and suggest improvements. Designed for low-context situations — subagents carry their own context. |
 
 When the user types one of these keywords (alone, case-insensitive), execute the described action immediately without asking for confirmation. These are shortcuts, not conversation starters.
 

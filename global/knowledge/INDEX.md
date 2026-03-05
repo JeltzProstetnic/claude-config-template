@@ -16,6 +16,7 @@ Conditionally loaded files containing operational knowledge for specific tools a
 | `mcp-deployment.md` | Adding new MCP server or debugging MCP server config | Pre-deployment checklist, port conflicts, onboarding suppression, per-server notes |
 | `plan-mode-issues.md` | Plan mode hangs, freezes, or unresponsive UI | Root cause (MCP deadlock), workarounds, diagnostic data |
 | `claude-code-permissions.md` | Permission prompts, settings.local.json issues | Override problem, fix procedure, prevention |
+| `learn-protocol.md` | `lrn`/`learn` command issued | Self-audit protocol: 3 parallel subagents for rule compliance, knowledge capture, and improvement finding |
 
 ## Adding New Knowledge Files
 
