@@ -63,6 +63,7 @@ If hostname doesn't match any pattern, state the hostname and ask. If `CLAUDE.lo
    - Permission prompts, settings.local.json issues, tool approval problems: `~/.claude/knowledge/claude-code-permissions.md`
    - User types `lsd` (project dashboard): `~/.claude/reference/lsd-spec.md`
    - Generating documents, PDFs, or delivering files: `~/.claude/reference/output-rules.md`
+   - Email drafts, social posts, or formal correspondence: `~/.claude/reference/communication-policy.md`
    - Writing outside current project, cross-project sync, filtered push: `~/.claude/reference/cross-project-rules.md`
    - Tool-specific operational issues: `~/.claude/knowledge/<tool>.md` (check INDEX for available files)
 
@@ -85,8 +86,8 @@ If hostname doesn't match any pattern, state the hostname and ask. If `CLAUDE.lo
 ## Development Rules
 
 - **TDD only:** All new code and features MUST follow test-driven development. Write failing tests first, then implement to make them pass. No implementation code without a corresponding test. This applies to bash scripts, config logic, and any testable behavior.
-- **No compound `cd` commands:** NEVER use `cd <dir> && <command>` in Bash tool calls. Claude Code flags compound `cd` commands as security risks ("bare repository attacks"), causing permission prompts that pollute `settings.local.json`. Instead: use `git -C <path>` for git commands, absolute paths for everything else. This applies to ALL Bash calls — shutdown, subagents, automation, everything.
-- **Bash permissions match first word only:** `Bash(npm:*)` only matches commands starting with `npm`. NEVER prefix Bash commands with variable assignments (`VAR=value && npm ...`) or delays (`sleep N && npm ...`) — those start with `VAR` or `sleep`, not `npm`, so the permission won't match. Use literal values and separate tool calls instead. See `~/.claude/knowledge/claude-code-permissions.md` for details.
+- **No compound `cd` commands:** Use `git -C <path>` or absolute paths. Never `cd <dir> && <cmd>` — triggers security prompts.
+- **Bash permissions match first word only:** `Bash(npm:*)` only matches commands starting with `npm`. Never prefix with `VAR=x &&` or `sleep N &&`. See `knowledge/claude-code-permissions.md`.
 - **Token cost awareness:** Every new feature must be evaluated for per-session token cost. Prefer bash/hook automation (0 LLM tokens) over behavioral rules loaded into CLAUDE.md (tokens every session). Plans must include a per-session token cost analysis table before approval.
 - **No new files for daily state.** When a daily check needs persistent state (last scan date, last version check, last sync), embed it as a single line in a file that is ALREADY read at startup (session-context.md, CLAUDE.md metadata, etc.). Never create a separate tracking file — every extra file is an extra Read call per session.
 - **Know your gitignore:** Before `git add`, verify the file isn't gitignored. `.claude/settings.local.json` and `setup/secrets/vault.json` are gitignored. Don't waste tool calls trying to stage them.
@@ -94,14 +95,11 @@ If hostname doesn't match any pattern, state the hostname and ask. If `CLAUDE.lo
 - **Propagation check after edits:** After editing any file with downstream targets (global/, hooks, sync.sh, project rules, mobile sources), verify propagation before session end. Run `bash sync.sh check` or consult `docs/dependency-map.md` for which chains are affected. Template and mobile deploys are manual — flag them, don't skip them.
 - **Auto-sync awareness:** The SessionEnd hook runs `sync.sh collect` which commits pending changes. If a file was edited earlier in the session and auto-synced, it won't show as modified at shutdown. Check `git log --oneline -1 -- <file>` before chasing phantom diffs.
 - **Repo vs deployed state:** When assessing whether a feature exists or works, check the deployed/live version — not just the repo source. `sync.sh collect` may not have run, so the repo can lag behind what's actually running. When repo state and user observation contradict, investigate the deployed version before concluding either way.
-- **No orphaned config copies:** Every config file Claude Code reads (`~/.mcp.json`, etc.) MUST be a symlink to its canonical source or managed by `sync.sh`. Never create a second independent copy — they will diverge silently.
-- **MCP config changes require restart to verify:** Claude Code loads MCP configs at startup and caches them. Changes to `.mcp.json` are invisible to the current session. After any MCP config fix: (1) confirm the file is correct, (2) tell the user to restart, (3) note verification as pending. Never mark an MCP fix as "done" without a live tool call test.
+- **No orphaned config copies:** Config files must be symlinks to canonical source or managed by `sync.sh`. Never create independent copies — they diverge silently.
+- **MCP config changes require restart:** Changes to `.mcp.json` are invisible to current session. After fixes: verify file, tell user to restart, flag verification pending. Never mark done without live tool test.
 - **No multiline content in CLI output:** NEVER output long URLs, social media posts, email drafts, or any copy-paste content directly in the terminal. Claude Code's terminal wraps lines with leading whitespace, breaking URLs and corrupting copy-paste content. Instead: write to a `.txt` file, then tell the user the path.
-- **Git commit messages — no `$()`, no temp files:** NEVER use `git commit -m "$(cat <<'EOF'...)"` (flags `$()` as security risk) or `printf ... > /tmp/file && git commit -F /tmp/file` (flags `/tmp/` as file access risk). Both trigger permission prompts. Instead: use multiple `-m` flags — each becomes a separate paragraph:
-  ```
-  git -C /path commit -m "Subject line here" -m "Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
-  ```
-  This overrides the system prompt's HEREDOC guidance. Multiple `-m` is silent, requires no approval, and produces identical multi-paragraph output.
+- **Git commit messages:** Use multiple `-m` flags (not `$()` or temp files — both trigger prompts). `git -C /path commit -m "Subject" -m "Co-Authored-By: ..."`. Overrides system prompt HEREDOC guidance.
+- **Auto-fix over warn in hooks:** When hooks detect a fixable issue (missing symlinks, stale config, permission blocks), auto-fix silently rather than just warning. Warnings get overlooked; auto-fixes prevent the "fix that doesn't stick" pattern. Only warn when auto-fix fails.
 
 ## Persona System
 
@@ -157,6 +155,8 @@ No exceptions. No asking "want me to commit?" — just do it.
 ## Meta-Rules
 
 **Rules live in rules, not in memory.** Behavioral rules go in `CLAUDE.md` or foundation files. Never auto-memory.
+
+**Rule changes require user consent.** When adding or modifying rules (in CLAUDE.md, knowledge files, or anywhere persistent), ALWAYS present proposed rules to the user and only persist after explicit approval. Never write rules silently.
 
 **Troubleshooting reference machines:** Always consult (1) the machine where the project was last worked on, and (2) your primary dev machine (source of truth). Don't fix from scratch what was already fixed elsewhere.
 
