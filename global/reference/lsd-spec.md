@@ -37,7 +37,7 @@ Each tier gets its own box-drawing table with a tier header. This is the key vis
 
 **Sub-projects** render directly under their declared parent (per the Parent column in the cache), indented with `+- ` prefix (uniform for all children — no distinction between middle/last). No number.
 
-**Size column alignment:** Right-align Size values within a fixed-width column (minimum 6 chars). When the Tasks column has long content (P1 names, etc.), do NOT let it push the Size column out of alignment. Set each column to a fixed width based on the longest value in that column for the current tier, then pad all cells to match.
+**Dynamic column widths — MANDATORY for all columns:** Before rendering each tier's table, calculate the maximum content width for EVERY column across all rows in that tier. Set each column width to `max(header_width, max_content_width)`. Minimums: `#`=2, Name=16, Type=12, Tasks=20, Size=6. Maximums: Name=24, Type=20, Tasks=50 (truncate with `…`), Size=14. Right-align Size values. Pad all cells to their column width. This prevents overflow where content pushes columns out of alignment.
 
 **Task counts** use compact format: `3P1 1P2 4P3` (only show priorities that have items). If no backlog or not local: `—`.
 

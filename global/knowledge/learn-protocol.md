@@ -4,10 +4,28 @@ Self-audit command. Designed for low-context situations — uses subagents with 
 
 ## Execution
 
-Launch **3 parallel Explore subagents** (read-only, each with full context budget):
+**Adaptive, not fixed.** Assess the situation first, then launch 1-3 parallel Explore subagents tailored to what's relevant. Don't run all 3 categories if only 1-2 apply.
 
-### Subagent 1 — Rule Compliance
+### Step 1 — Triage (inline, no subagent)
 
+Before launching subagents, quickly assess:
+- **What went wrong?** Rule violation, missed info, process gap, architecture issue?
+- **What's the user's tone?** Frustrated (→ root cause + fix), curious (→ deeper analysis), directive (→ just do it)?
+- **Which audit categories are relevant?**
+
+### Step 2 — Pick relevant agents
+
+| Category | When to include | Skip when... |
+|----------|----------------|-------------|
+| **Rule Compliance** | Something broke, a protocol was violated, user says "learn from this" | Issue is purely architectural or forward-looking |
+| **Knowledge Capture** | User shared personal/equipment/people info this session | Session was purely operational, no new info shared |
+| **Process/Architecture** | Repeated pattern, automation opportunity, workflow gap, scaling issue | One-off mistake with obvious inline fix |
+
+Launch only the relevant ones. 1 agent is fine if the issue is clear. All 3 only if the situation is genuinely multi-faceted.
+
+### Agent Templates
+
+#### Rule Compliance Agent
 Prompt the subagent with:
 - Read `~/.claude/CLAUDE.md` (global rules), the project's `CLAUDE.md`, and `~/.claude/foundation/session-protocol.md`
 - Read `session-context.md` in the current project
@@ -23,47 +41,49 @@ Prompt the subagent with:
   - Wrote to files outside project boundary
 - Report each violation with: rule text, evidence, suggested fix
 
-### Subagent 2 — Knowledge Capture
-
+#### Knowledge Capture Agent
 Prompt the subagent with:
 - Read `session-context.md` in the current project
 - Read machine file (`~/.claude/machines/<machine>.md`) for the current machine
+- Read `~/.claude/domains/life-management/relationships.md` (people KB)
+- Read `~/.claude/domains/life-management/family.md`
 - Check: Did the user share information this session that isn't captured?
   - New hardware/equipment details → machine files
-  - New people/contacts → relationships or people KB files
+  - New people/contacts → relationships.md
   - New preferences/habits → appropriate KB file
+  - Personal/family context → family.md
   - Decisions made → docs/decisions.md
 - Also check: Is anything in the KB files contradicted by session activity?
 - Report each gap with: what info, where it should go, proposed content
 
-### Subagent 3 — Improvement Finder
-
+#### Process/Architecture Agent
 Prompt the subagent with:
 - Read `session-context.md` and `session-history.md` in the current project
 - Read `backlog.md` in the current project
 - Read `docs/decisions.md` if it exists
-- Check: Are there patterns across recent sessions?
+- Focus on the specific pattern/issue identified in triage
+- Check: Are there systemic improvements needed?
   - Repeated manual steps that could be automated (hooks, scripts)
   - Recurring mistakes that need a rule
-  - Missing or stale backlog items
+  - Missing classification or metadata (e.g., task recurrence types)
   - Processes that could be streamlined
 - Report each finding with: pattern observed, suggested fix (rule, script, or backlog item)
 
 ## Presenting Results
 
-After all 3 subagents return:
+After subagents return:
 
-1. **Consolidate** — group findings by type (violations, gaps, improvements)
-2. **Prioritize** — critical violations first, then high-value captures, then improvements
+1. **Consolidate** — group findings by type
+2. **Prioritize** — critical fixes first, then high-value improvements
 3. **Present** — concise report to user with proposed actions
 4. **Approve** — rule changes and KB updates require explicit user approval before persisting
 5. **Execute** — after approval, make the changes (edit files, add backlog items)
 
 ## Context Efficiency
 
-The `lrn` command is typically issued when context is running low (end of session, after auto-compact). Design choices:
 - **Subagents over inline analysis** — each gets a fresh context window
 - **Explore agents** — read-only, can't accidentally modify files
-- **Parallel execution** — all 3 run simultaneously, minimizing wall-clock time
+- **Parallel execution** — all selected agents run simultaneously
 - **File-based evidence** — subagents read files, not conversation history (which may be compressed)
 - **Session-context.md as anchor** — this file should be up-to-date before `lrn` runs; update it first if needed
+- **Adaptive count** — 1 agent for clear issues, 2-3 for multi-faceted situations. Don't waste tokens on categories that obviously don't apply.
