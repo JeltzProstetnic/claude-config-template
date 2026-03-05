@@ -60,15 +60,15 @@ Every session after the first is automatic: pull latest config, load project kno
 
 ---
 
-## Three Shortcuts
+## Three Commands
 
 ```
 lsd     project dashboard
-cls     clean shutdown, then /clear
-end     clean shutdown, then exit
+cls     clean shutdown (then /clear or exit)
+lrn     self-audit: rules, knowledge gaps, improvements
 ```
 
-Type any of these as your entire message. `cls` and `end` run the full shutdown protocol -- save state, archive session, commit, push -- so you never lose work. `lsd` shows a priority-grouped dashboard with task counts and disk sizes, rendered from cache built at each shutdown.
+Type any of these as your entire message. `cls` (or `end`) runs the full shutdown protocol -- save state, archive session, commit, push -- so you never lose work. `lsd` shows a priority-grouped dashboard with task counts and disk sizes. `lrn` launches parallel subagents to audit the session for rule violations, uncaptured knowledge, and improvement opportunities -- designed for low-context situations where the main context window is nearly full.
 
 These are shortcuts, not the interface. The interface is conversation.
 
