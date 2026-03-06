@@ -28,9 +28,32 @@ set -euo pipefail
 
 # Resolve script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 # Source shared utilities
 source "${SCRIPT_DIR}/lib.sh"
+
+# ============================================================================
+# TEMPLATE MARKER CLEANUP
+# ============================================================================
+# .template-repo marks this as an uninitialized template clone. Remove it
+# before anything else — hooks check for it and warn if present.
+
+if [[ -f "${REPO_ROOT}/.template-repo" ]]; then
+    echo "Removing template marker (.template-repo)..."
+    rm -f "${REPO_ROOT}/.template-repo"
+fi
+
+# ============================================================================
+# NON-INTERACTIVE DETECTION
+# ============================================================================
+# Detect when running without a TTY (e.g., inside Claude Code or piped input).
+# Scripts downstream use NON_INTERACTIVE to skip prompts and use defaults.
+
+if [[ ! -t 0 ]]; then
+    NON_INTERACTIVE=true
+    export NON_INTERACTIVE
+fi
 
 # ============================================================================
 # CONFIGURATION
@@ -135,11 +158,13 @@ if [[ "${ROLLBACK_MODE}" == "true" ]]; then
     rollback_show
     echo ""
 
-    # Prompt for confirmation
-    if ! prompt_yes_no "Restore from most recent backup?" "n"; then
-        echo ""
-        log_info "Rollback cancelled by user."
-        exit 0
+    # Prompt for confirmation (skip in non-interactive mode)
+    if [[ "${NON_INTERACTIVE:-false}" != "true" ]]; then
+        if ! prompt_yes_no "Restore from most recent backup?" "n"; then
+            echo ""
+            log_info "Rollback cancelled by user."
+            exit 0
+        fi
     fi
 
     echo ""
@@ -216,10 +241,14 @@ echo "  Phase 1 requires sudo for package installation."
 echo "  Phase 2 will prompt for MCP credentials (GitHub PAT, etc.)."
 echo ""
 
-if ! prompt_yes_no "Proceed with installation?" "y"; then
-    echo ""
-    log_info "Installation cancelled by user."
-    exit 0
+if [[ "${NON_INTERACTIVE:-false}" == "true" ]]; then
+    log_info "Non-interactive mode detected — proceeding automatically"
+else
+    if ! prompt_yes_no "Proceed with installation?" "y"; then
+        echo ""
+        log_info "Installation cancelled by user."
+        exit 0
+    fi
 fi
 
 echo ""

@@ -501,6 +501,25 @@ deploy_helper_scripts() {
         ((deployed_count++))
     fi
 
+    # statusline.sh — context usage bar for Claude Code
+    local src_statusline="${SCRIPT_DIR}/config/statusline.sh"
+    local dest_statusline="${HOME}/.claude/statusline.sh"
+
+    require_file "${src_statusline}" "statusline.sh"
+
+    run_cmd mkdir -p "${HOME}/.claude"
+
+    if files_identical "${src_statusline}" "${dest_statusline}"; then
+        log_info "statusline.sh already up to date, skipping"
+        ((skipped_count++))
+    else
+        backup_file "${dest_statusline}"
+        run_cmd cp "${src_statusline}" "${dest_statusline}"
+        run_cmd chmod +x "${dest_statusline}"
+        log_success "Deployed: statusline.sh -> ~/.claude/statusline.sh"
+        ((deployed_count++))
+    fi
+
     # Copy this installer for reference
     local src_installer="${SCRIPT_DIR}/configure-claude.sh"
     local dest_installer="${SCRIPTS_DIR}/configure-claude.sh"

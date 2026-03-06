@@ -1,10 +1,18 @@
 #!/bin/bash
 # Context usage statusline for Claude Code
-# Shows: [Model] ▓▓▓▓░░░░░░ 108k/200k (54%)
+# Shows: [Model] ▓▓▓▓░░░░░░ 108k/200k (54%) | Bartl
 # Color: green <70%, yellow 70-89%, red 90%+
+# Persona indicator reads from ~/.claude/.active-persona (written by Claude)
 input=$(cat)
 python3 -c "
-import json, sys
+import json, sys, os
+
+# Persona colors (ANSI) — must match personas.md Color field
+PERSONA_COLORS = {
+    'Bartl': '\033[93m',   # bright-yellow
+    'Elsa': '\033[95m',    # bright-magenta (pink)
+}
+
 try:
     d = json.loads(sys.stdin.read())
     model = d.get('model', {}).get('display_name', '?')
@@ -12,13 +20,13 @@ try:
     pct = cw.get('used_percentage') or 0
     win_size = cw.get('context_window_size') or 200000
     cu = cw.get('current_usage') or {}
-    # Real context = input_tokens + cache_creation + cache_read (not just input_tokens)
     input_tokens = (cu.get('input_tokens') or 0) + (cu.get('cache_creation_input_tokens') or 0) + (cu.get('cache_read_input_tokens') or 0)
-    pct_int = int(pct)
-    # Primary: derive from percentage (always correct). Token sum as cross-check only.
     used_k = int(win_size * pct / 100000)
+    # If used_percentage is 0 but tokens exist, derive percentage from tokens
     if used_k == 0 and input_tokens > 0:
         used_k = input_tokens // 1000
+        pct = (input_tokens / win_size) * 100  # recalculate percentage
+    pct_int = int(pct)
     total_k = win_size // 1000
     bar_w = 10
     filled = pct_int * bar_w // 100
@@ -31,7 +39,20 @@ try:
         c = '\033[32m'
     r = '\033[0m'
     bar = '\u2593' * filled + '\u2591' * empty
-    sys.stdout.write(f'[{model}] {c}{bar} {used_k}k/{total_k}k ({pct_int}%){r}\n')
+
+    # Read active persona
+    persona_str = ''
+    persona_file = os.path.expanduser('~/.claude/.active-persona')
+    try:
+        with open(persona_file) as f:
+            name = f.read().strip()
+        if name:
+            pc = PERSONA_COLORS.get(name, '\033[36m')  # default cyan
+            persona_str = f' {pc}{name}{r}'
+    except FileNotFoundError:
+        pass
+
+    sys.stdout.write(f'[{model}] {c}{bar} {used_k}k/{total_k}k ({pct_int}%){r}{persona_str}\n')
 except Exception:
     sys.stdout.write('[?] ...\n')
 " <<< "$input"

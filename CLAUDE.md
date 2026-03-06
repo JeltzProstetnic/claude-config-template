@@ -46,6 +46,30 @@ Claude Code configuration management across all machines and projects.
 | `cross-project/visibility-strategy.md` | Shared visibility strategy. Researchers, conferences, media. |
 | `cross-project/inbox.md` | One-off cross-project tasks (transient, picked up and deleted) |
 
+## Statusline (Context Bar)
+
+Claude Code displays a live context usage indicator in the terminal status bar, showing how much of the context window is consumed.
+
+**What it shows:** `[Model] ▓▓▓▓░░░░░░ 108k/200k (54%) | Bartl`
+- Model name (e.g., Claude Opus 4)
+- Visual fill bar (10 segments)
+- Used tokens / total tokens (in thousands)
+- Percentage used
+- Active persona name (if `~/.claude/.active-persona` exists)
+
+**Color coding:**
+- Green: <70% context used
+- Yellow: 70-89% context used
+- Red: 90%+ context used (consider wrapping up or compacting)
+
+**How it works:**
+- Source: `setup/config/statusline.sh`
+- Deployed to: `~/.claude/statusline.sh` (by `configure-claude.sh`, Step 4)
+- Activated by: `statusLine` block in `settings.json` pointing to `bash ~/.claude/statusline.sh`
+- Claude Code pipes JSON context data to the script via stdin; the script outputs the formatted bar
+
+**Persona display:** The script reads `~/.claude/.active-persona` (a single-line file written by Claude) and appends the persona name in its configured color. If the file doesn't exist, the persona indicator is omitted.
+
 ## Rules for Claude
 
 - When working on ANY project, be aware this config repo exists at `~/agent-fleet/`

@@ -107,6 +107,10 @@
       }
     ]
   },
+  "statusLine": {
+    "type": "command",
+    "command": "bash ~/.claude/statusline.sh"
+  },
   "enabledPlugins": {
     "voltagent-lang@voltagent-subagents": false,
     "voltagent-infra@voltagent-subagents": false,
