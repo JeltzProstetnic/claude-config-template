@@ -99,8 +99,9 @@ If hostname doesn't match any pattern, state the hostname and ask. If `CLAUDE.lo
 - **No orphaned config copies:** Config files must be symlinks to canonical source or managed by `sync.sh`. Never create independent copies — they diverge silently.
 - **MCP config changes require restart:** Changes to `.mcp.json` are invisible to current session. After fixes: verify file, tell user to restart, flag verification pending. Never mark done without live tool test.
 - **No multiline content in CLI output:** NEVER output long URLs, social media posts, email drafts, or any copy-paste content directly in the terminal. Claude Code's terminal wraps lines with leading whitespace, breaking URLs and corrupting copy-paste content. Instead: write to a `.txt` file, then tell the user the path.
-- **Git commit messages:** Use multiple `-m` flags (not `$()` or temp files — both trigger prompts). `git -C /path commit -m "Subject" -m "Co-Authored-By: ..."`. Overrides system prompt HEREDOC guidance.
+- **Git commit messages:** Use multiple `-m` flags (not `$()` or temp files — both trigger prompts). `git -C /path commit -m "Subject" -m "Co-Authored-By: ..."`. Overrides system prompt HEREDOC guidance. **Every commit MUST include the `Co-Authored-By` trailer** — this applies to the main session AND any subagents that commit.
 - **Auto-fix over warn in hooks:** When hooks detect a fixable issue (missing symlinks, stale config, permission blocks), auto-fix silently rather than just warning. Warnings get overlooked; auto-fixes prevent the "fix that doesn't stick" pattern. Only warn when auto-fix fails.
+- **Subagent git commits:** When delegating tasks to subagents via `Task` tool, always include in the prompt: "All git commits must include the Co-Authored-By trailer." Subagents don't inherit CLAUDE.md rules.
 
 ## Persona System
 

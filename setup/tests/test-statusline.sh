@@ -181,4 +181,110 @@ test_different_window_size() {
 }
 run_test "different window size: 128k context" test_different_window_size
 
+# ── Persona display tests ───────────────────────────────────────────────────
+
+test_persona_display_from_active_persona() {
+    # Set up a mock ~/.claude/.active-persona
+    local mock_home="$TEST_TMPDIR/home"
+    mkdir -p "$mock_home/.claude"
+    echo "Bartl" > "$mock_home/.claude/.active-persona"
+
+    local output
+    output=$(HOME="$mock_home" bash -c 'echo '"'"''"$(make_json "Opus 4.6" 54)"''"'"' | bash '"'$SCRIPT_PATH'"'')
+    assert_contains "$output" "Bartl" "should display persona name from .active-persona"
+}
+run_test "persona: displays name from .active-persona file" test_persona_display_from_active_persona
+
+test_persona_color_bartl_bright_yellow() {
+    local mock_home="$TEST_TMPDIR/home"
+    mkdir -p "$mock_home/.claude"
+    echo "Bartl" > "$mock_home/.claude/.active-persona"
+
+    local raw_output
+    raw_output=$(HOME="$mock_home" bash -c 'echo '"'"''"$(make_json "Opus 4.6" 50)"''"'"' | bash '"'$SCRIPT_PATH'"'')
+    # Bartl uses bright-yellow: \033[93m
+    local yellow_bright=$'\033[93m'
+    assert_contains "$raw_output" "$yellow_bright" "Bartl should use bright-yellow ANSI (93m)"
+}
+run_test "persona: Bartl uses bright-yellow color" test_persona_color_bartl_bright_yellow
+
+test_persona_color_elsa_bright_magenta() {
+    local mock_home="$TEST_TMPDIR/home"
+    mkdir -p "$mock_home/.claude"
+    echo "Elsa" > "$mock_home/.claude/.active-persona"
+
+    local raw_output
+    raw_output=$(HOME="$mock_home" bash -c 'echo '"'"''"$(make_json "Opus 4.6" 50)"''"'"' | bash '"'$SCRIPT_PATH'"'')
+    # Elsa uses bright-magenta (pink): \033[95m
+    local magenta_bright=$'\033[95m'
+    assert_contains "$raw_output" "$magenta_bright" "Elsa should use bright-magenta ANSI (95m)"
+}
+run_test "persona: Elsa uses bright-magenta color" test_persona_color_elsa_bright_magenta
+
+test_persona_unknown_uses_cyan_default() {
+    local mock_home="$TEST_TMPDIR/home"
+    mkdir -p "$mock_home/.claude"
+    echo "Unknown" > "$mock_home/.claude/.active-persona"
+
+    local raw_output
+    raw_output=$(HOME="$mock_home" bash -c 'echo '"'"''"$(make_json "Opus 4.6" 50)"''"'"' | bash '"'$SCRIPT_PATH'"'')
+    # Unknown persona uses default cyan: \033[36m
+    local cyan=$'\033[36m'
+    assert_contains "$raw_output" "$cyan" "unknown persona should use default cyan ANSI (36m)"
+    assert_contains "$raw_output" "Unknown" "should still display the persona name"
+}
+run_test "persona: unknown persona uses cyan default color" test_persona_unknown_uses_cyan_default
+
+test_persona_empty_file_no_display() {
+    local mock_home="$TEST_TMPDIR/home"
+    mkdir -p "$mock_home/.claude"
+    echo "" > "$mock_home/.claude/.active-persona"
+
+    local output
+    output=$(HOME="$mock_home" bash -c 'echo '"'"''"$(make_json "Opus 4.6" 50)"''"'"' | bash '"'$SCRIPT_PATH'"'')
+    # With empty persona file, should not append persona section
+    # The output should end with the percentage, no trailing persona name
+    assert_not_contains "$output" "|" "empty persona file should not display persona separator"
+}
+run_test "persona: empty .active-persona file shows no persona" test_persona_empty_file_no_display
+
+test_persona_missing_file_no_error() {
+    local mock_home="$TEST_TMPDIR/home"
+    mkdir -p "$mock_home/.claude"
+    # Do NOT create .active-persona
+
+    local output
+    output=$(HOME="$mock_home" bash -c 'echo '"'"''"$(make_json "Opus 4.6" 50)"''"'"' | bash '"'$SCRIPT_PATH'"'')
+    # Should still produce valid output with no persona
+    assert_contains "$output" "[Opus 4.6]" "should show model name even without .active-persona"
+    assert_contains "$output" "(50%)" "should show percentage even without .active-persona"
+}
+run_test "persona: missing .active-persona file produces no error" test_persona_missing_file_no_error
+
+# ── Deployment tests ────────────────────────────────────────────────────────
+
+test_settings_json_has_statusline_key() {
+    local settings="$REPO_ROOT/setup/config/settings.json"
+    assert_file_exists "$settings"
+    assert_file_contains "$settings" '"statusLine"'
+    assert_file_contains "$settings" 'statusline.sh'
+}
+run_test "settings.json has statusLine key pointing to statusline.sh" test_settings_json_has_statusline_key
+
+test_configure_deploys_statusline_to_claude_dir() {
+    local config="$REPO_ROOT/setup/configure-claude.sh"
+    assert_file_exists "$config"
+    # configure-claude.sh should copy statusline.sh to ~/.claude/statusline.sh
+    assert_file_contains "$config" 'dest_statusline="${HOME}/.claude/statusline.sh"'
+    assert_file_contains "$config" 'src_statusline='
+}
+run_test "configure-claude.sh deploys statusline.sh to ~/.claude/" test_configure_deploys_statusline_to_claude_dir
+
+test_statusline_script_reads_active_persona() {
+    # Verify the script source contains persona reading logic
+    assert_file_contains "$SCRIPT_PATH" '.active-persona'
+    assert_file_contains "$SCRIPT_PATH" 'PERSONA_COLORS'
+}
+run_test "statusline.sh source reads .active-persona and uses PERSONA_COLORS" test_statusline_script_reads_active_persona
+
 suite_summary
