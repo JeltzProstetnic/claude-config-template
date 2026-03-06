@@ -52,7 +52,13 @@ try:
     except FileNotFoundError:
         pass
 
-    sys.stdout.write(f'[{model}] {c}{bar} {used_k}k/{total_k}k ({pct_int}%){r}{persona_str}\n')
+    # AFK mode indicator
+    afk_str = ''
+    afk_marker = os.path.expanduser('~/.afd-afk')
+    if os.path.exists(afk_marker):
+        afk_str = f' \033[91m[AFK]\033[0m'
+
+    sys.stdout.write(f'[{model}] {c}{bar} {used_k}k/{total_k}k ({pct_int}%){r}{persona_str}{afk_str}\n')
 except Exception:
     sys.stdout.write('[?] ...\n')
 " <<< "$input"
