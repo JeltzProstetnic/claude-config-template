@@ -665,28 +665,19 @@ install_cc_mirror() {
 # STEP 6: CREATE MCLAUDE VARIANT
 # ============================================================================
 
-# Check for build tools needed by TweakCC (gcc, make, python3).
-# TweakCC patches the native Claude Code binary for cosmetic changes (themes,
-# banner hiding, statusline). These patches require node-lief, which needs
-# native compilation tools.
+# TweakCC is DISABLED by default. It patches the Claude Code binary for
+# cosmetic changes (themes, banner hiding, custom thinking verbs) but is
+# fundamentally incompatible with cc-mirror's npm-based install format.
+# Even with node-lief installed, TweakCC fails to extract JS from cc-mirror's
+# binary ("Could not extract JS from native binary"). This is not a build
+# tools issue — it's an architectural mismatch.
 #
-# IMPORTANT: node-lief is only needed for NATIVE BINARY installs. cc-mirror
-# uses npm-based installs where node-lief is NOT required. However, TweakCC
-# still attempts to use node-lief for its patching step, so the error message
-# about "node-lief not found" is misleading in the cc-mirror context — the
-# actual issue is missing build tools (gcc, make, python3) that would be
-# needed to compile node-lief if TweakCC tries to install it.
+# The statusline (context bar) works independently of TweakCC via the
+# statusLine key in settings.json. No patching needed.
 #
-# Returns: space-separated list of missing tools (empty string if all present)
-check_build_tools() {
-    local missing=()
-    for tool in gcc make python3; do
-        if ! command -v "${tool}" &>/dev/null; then
-            missing+=("${tool}")
-        fi
-    done
-    echo "${missing[*]}"
-}
+# To enable TweakCC (advanced, experimental):
+#   cc-mirror update mclaude --tweak
+# This may work on some setups but is not supported in the default install.
 
 create_mclaude_variant() {
     log_step 6 "${TOTAL_STEPS}" "Create mclaude Variant"
@@ -699,39 +690,19 @@ create_mclaude_variant() {
         return 0
     fi
 
-    # Check for build tools before attempting TweakCC
-    local missing_tools
-    missing_tools=$(check_build_tools)
-    if [[ -n "${missing_tools}" ]]; then
-        log_warn "Missing build tools for TweakCC: ${missing_tools}"
-        log_warn "TweakCC cosmetic patches (themes, banner hiding, statusline) require: gcc, make, python3"
-        log_warn "cc-mirror will attempt installation, but TweakCC patching may be skipped"
-    fi
-
-    log_info "Creating mclaude variant (provider: mirror, team mode)..."
+    log_info "Creating mclaude variant (provider: mirror, team mode, no-tweak)..."
     if [[ "${DRY_RUN}" == "false" ]]; then
-        # Try with TweakCC first. If it fails, fall back to --no-tweak.
-        # Common failure: TweakCC tries to compile node-lief but build tools
-        # are missing. The node-lief error is misleading — node-lief is only
-        # needed for native binary patching, not for cc-mirror's npm-based
-        # install. The --no-tweak flag skips all cosmetic patches cleanly.
-        if ! cc-mirror quick --provider mirror --name "${CC_MIRROR_VARIANT}" 2>&1; then
-            log_warn "TweakCC patching failed (likely missing build tools)."
-            log_warn "Retrying without TweakCC cosmetic patches..."
-            log_warn "Installing without cosmetic patches — themes, banner hiding,"
-            log_warn "and statusline optimization will not be available."
-            log_warn "Install gcc, make, and python3 for full TweakCC support."
-
-            if ! cc-mirror quick --provider mirror --name "${CC_MIRROR_VARIANT}" --no-tweak 2>&1; then
-                log_error "Failed to create mclaude variant (even without TweakCC)"
-                log_error "You can create it manually: cc-mirror quick --provider mirror --name ${CC_MIRROR_VARIANT} --no-tweak"
-                exit 1
-            fi
-
-            INSTALLED_STEPS+=("mclaude-variant (without TweakCC)")
-        else
-            INSTALLED_STEPS+=("mclaude-variant")
+        # Always use --no-tweak. TweakCC patching is incompatible with
+        # cc-mirror's npm-based binary format and fails on most setups.
+        # All functional features (statusline, hooks, MCP, permissions)
+        # work without TweakCC. It only provides cosmetic patches.
+        if ! cc-mirror quick --provider mirror --name "${CC_MIRROR_VARIANT}" --no-tweak 2>&1; then
+            log_error "Failed to create mclaude variant"
+            log_error "You can try manually: cc-mirror quick --provider mirror --name ${CC_MIRROR_VARIANT} --no-tweak"
+            exit 1
         fi
+
+        INSTALLED_STEPS+=("mclaude-variant")
 
         # Verify launcher was created
         if [[ ! -f "${HOME}/.local/bin/${CC_MIRROR_VARIANT}" ]]; then
@@ -741,8 +712,7 @@ create_mclaude_variant() {
 
         log_info "mclaude launcher created at ~/.local/bin/${CC_MIRROR_VARIANT}"
     else
-        log_info "[DRY RUN] Would run: cc-mirror quick --provider mirror --name ${CC_MIRROR_VARIANT}"
-        log_info "[DRY RUN] (with --no-tweak fallback if TweakCC patching fails)"
+        log_info "[DRY RUN] Would run: cc-mirror quick --provider mirror --name ${CC_MIRROR_VARIANT} --no-tweak"
         INSTALLED_STEPS+=("mclaude-variant (dry-run)")
     fi
 
