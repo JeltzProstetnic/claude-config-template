@@ -84,7 +84,7 @@ cmd_info() {
 # ---------------------------------------------------------------------------
 # Step 1 — Detect platform
 # ---------------------------------------------------------------------------
-step "1/7" "Detecting platform"
+step "1/8" "Detecting platform"
 
 PLATFORM="linux"
 [[ "$OSTYPE" == "darwin"* ]] && PLATFORM="macos"
@@ -94,7 +94,7 @@ ok "Platform: ${PLATFORM}"
 # ---------------------------------------------------------------------------
 # Step 2 — Check prerequisites
 # ---------------------------------------------------------------------------
-step "2/7" "Checking prerequisites"
+step "2/8" "Checking prerequisites"
 
 command -v git &>/dev/null || die "git is not installed. Please install git first."
 ok "git: $(command -v git)"
@@ -121,10 +121,57 @@ fi
 mkdir -p "$CLAUDE_DIR/hooks"
 ok "Config dir: ${CLAUDE_DIR}"
 
+# Check for Claude Code
+HAS_CLAUDE=false
+if command -v claude &>/dev/null; then
+  ok "Claude Code: $(command -v claude)"
+  HAS_CLAUDE=true
+else
+  warn "Claude Code not found in PATH"
+  echo "    Install from: https://docs.anthropic.com/en/docs/claude-code"
+fi
+
+# Check for cc-mirror / mclaude
+HAS_CCMIRROR=false
+if command -v mclaude &>/dev/null; then
+  ok "mclaude (cc-mirror variant): $(command -v mclaude)"
+  HAS_CCMIRROR=true
+elif command -v cc-mirror &>/dev/null; then
+  ok "cc-mirror installed but mclaude variant not created yet"
+  HAS_CCMIRROR=true
+else
+  warn "cc-mirror not installed — mclaude variant unavailable"
+  if command -v npm &>/dev/null; then
+    if [[ "$NON_INTERACTIVE" == true ]]; then
+      warn "Run 'npm install -g cc-mirror && cc-mirror create --variant mclaude' to install"
+    else
+      read -r -p "  Install cc-mirror now? (recommended — enables mclaude launcher) [Y/n]: " _ccm
+      if [[ "${_ccm,,}" != "n" ]]; then
+        echo "  Installing cc-mirror..."
+        if npm install -g cc-mirror 2>&1 | tail -1; then
+          ok "cc-mirror installed"
+          HAS_CCMIRROR=true
+          echo "  Creating mclaude variant..."
+          if cc-mirror create --variant mclaude 2>&1 | tail -1; then
+            ok "mclaude variant created"
+          else
+            warn "Failed to create mclaude variant — run 'cc-mirror create --variant mclaude' manually"
+          fi
+        else
+          warn "cc-mirror install failed — run 'npm install -g cc-mirror' manually"
+        fi
+      fi
+    fi
+  else
+    warn "npm not found — install Node.js first, then run:"
+    echo "    npm install -g cc-mirror && cc-mirror create --variant mclaude"
+  fi
+fi
+
 # ---------------------------------------------------------------------------
 # Step 3 — User profile
 # ---------------------------------------------------------------------------
-step "3/7" "User profile setup"
+step "3/8" "User profile setup"
 
 PROFILE_FILE="$REPO_DIR/global/foundation/user-profile.md"
 
@@ -164,7 +211,7 @@ fi
 # ---------------------------------------------------------------------------
 # Step 4 — Machine catalog
 # ---------------------------------------------------------------------------
-step "4/7" "Machine catalog"
+step "4/8" "Machine catalog"
 
 CLAUDE_MACHINE_ID="${CLAUDE_MACHINE_ID:-}"
 prompt CLAUDE_MACHINE_ID "Machine ID (hostname or custom label)" "$(hostname 2>/dev/null || cat /etc/hostname 2>/dev/null || echo "unknown")"
@@ -213,7 +260,7 @@ ok "Wrote machine-catalog.md (machine: ${CLAUDE_MACHINE_ID})"
 # ---------------------------------------------------------------------------
 # Step 5 — First project (deferred to Claude's interactive first-run)
 # ---------------------------------------------------------------------------
-step "5/7" "Project setup"
+step "5/8" "Project setup"
 
 ok "Claude will help you set up your first project on first launch"
 ok "You can also set up projects anytime by telling Claude 'set up this project'"
@@ -221,7 +268,7 @@ ok "You can also set up projects anytime by telling Claude 'set up this project'
 # ---------------------------------------------------------------------------
 # Step 6 — Symlinks
 # ---------------------------------------------------------------------------
-step "6/7" "Creating symlinks in ${CLAUDE_DIR}"
+step "6/8" "Creating symlinks in ${CLAUDE_DIR}"
 
 if [[ -f "$REPO_DIR/global/CLAUDE.md" ]]; then
   ln -sf "$REPO_DIR/global/CLAUDE.md" "$CLAUDE_DIR/CLAUDE.md"
@@ -271,7 +318,7 @@ fi
 # ---------------------------------------------------------------------------
 # Step 7 — Hooks
 # ---------------------------------------------------------------------------
-step "7/7" "Installing hooks"
+step "7/8" "Installing hooks"
 
 HOOKS_SRC="$REPO_DIR/global/hooks"
 if [[ -d "$HOOKS_SRC" ]]; then
@@ -293,8 +340,9 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Optional — MCP Server Setup
+# Step 8 — MCP Server Setup
 # ---------------------------------------------------------------------------
+step "8/8" "MCP server configuration"
 echo ""
 echo -e "${BOLD}${BLUE}MCP Server Setup${RESET}"
 echo "  MCP servers let Claude access external tools (GitHub, Gmail, Twitter, Jira)."
@@ -672,19 +720,12 @@ echo "  knowledge/  ->  global/knowledge/"
 echo "  machines/   ->  global/machines/"
 
 # ---------------------------------------------------------------------------
-# Offer interactive refinement
+# Next steps
 # ---------------------------------------------------------------------------
 echo ""
-echo -e "${BOLD}${BLUE}Interactive setup${RESET}"
-echo "  Claude can now help you personalize your configuration:"
-echo "  - Refine your user profile with real preferences"
-echo "  - Set up additional MCP servers you skipped above"
-echo "  - Choose which knowledge domains to enable"
-echo "  - Set up your first project"
-echo "  - Add global rules (e.g. 'always use bun', 'never auto-commit')"
-echo ""
+echo -e "${BOLD}${BLUE}Next steps${RESET}"
 
-# Detect available Claude command
+# Determine the best command to use
 CLAUDE_CMD=""
 if command -v mclaude &>/dev/null; then
   CLAUDE_CMD="mclaude"
@@ -692,29 +733,41 @@ elif command -v claude &>/dev/null; then
   CLAUDE_CMD="claude"
 fi
 
-if [[ -n "$CLAUDE_CMD" ]]; then
-  do_refine=false
-  if [[ "$NON_INTERACTIVE" == true ]]; then
-    echo "  Run '$CLAUDE_CMD' in $REPO_DIR to start interactive setup."
+if [[ -z "$CLAUDE_CMD" ]]; then
+  echo ""
+  echo -e "  ${RED}Claude Code is not installed.${RESET}"
+  echo ""
+  echo "  To complete setup:"
+  echo "    1. Install Claude Code: https://docs.anthropic.com/en/docs/claude-code"
+  if [[ "$HAS_CCMIRROR" != true ]]; then
+    echo "    2. Install cc-mirror:   npm install -g cc-mirror && cc-mirror create --variant mclaude"
+    echo "    3. cd $REPO_DIR && mclaude"
   else
-    read -r -p "  Launch Claude now for interactive setup? [Y/n]: " _refine
-    [[ "${_refine,,}" != "n" ]] && do_refine=true
+    echo "    2. cd $REPO_DIR && mclaude"
   fi
-
-  if [[ "$do_refine" == true ]]; then
-    echo ""
-    echo -e "${BOLD}Launching $CLAUDE_CMD in ${REPO_DIR}...${RESET}"
-    echo ""
-    cd "$REPO_DIR"
-    exec "$CLAUDE_CMD"
-  fi
+  echo ""
+  echo "  Claude will detect the pending setup and guide you through onboarding."
+elif [[ "$HAS_CCMIRROR" != true ]] && [[ "$CLAUDE_CMD" == "claude" ]]; then
+  echo ""
+  echo -e "  ${YELLOW}cc-mirror is not installed.${RESET}"
+  echo "  You can use vanilla 'claude' but 'mclaude' (via cc-mirror) is recommended."
+  echo ""
+  echo "  To install cc-mirror:"
+  echo "    npm install -g cc-mirror && cc-mirror create --variant mclaude"
+  echo ""
+  echo "  To start onboarding now (vanilla Claude Code):"
+  echo "    cd $REPO_DIR && claude"
+  echo ""
+  echo "  Claude will detect the pending setup and guide you through onboarding."
 else
-  echo -e "  ${YELLOW}Claude Code not found in PATH.${RESET}"
-  echo "  After installing Claude Code, run it in ${REPO_DIR} to start interactive setup."
+  echo ""
+  echo "  To start onboarding:"
+  echo "    cd $REPO_DIR && $CLAUDE_CMD"
+  echo ""
+  echo "  Claude will detect the pending setup and guide you through:"
+  echo "    - Refining your user profile"
+  echo "    - Setting up additional MCP servers"
+  echo "    - Choosing knowledge domains"
+  echo "    - Setting up your first project"
+  echo "    - Adding global rules"
 fi
-
-echo ""
-echo -e "${BOLD}Manual setup:${RESET}"
-echo "  1. cd $REPO_DIR"
-echo "  2. Run: claude  (or mclaude)"
-echo "  Claude will detect the pending setup and guide you through it."
