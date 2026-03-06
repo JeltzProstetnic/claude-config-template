@@ -35,9 +35,28 @@ set -euo pipefail
 
 # Resolve script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 # Source shared utilities
 source "${SCRIPT_DIR}/lib.sh"
+
+# ============================================================================
+# TEMPLATE MARKER CLEANUP (defense-in-depth — install.sh also does this)
+# ============================================================================
+
+if [[ -f "${REPO_ROOT}/.template-repo" ]]; then
+    echo "Removing template marker (.template-repo)..."
+    rm -f "${REPO_ROOT}/.template-repo"
+fi
+
+# ============================================================================
+# NON-INTERACTIVE DETECTION
+# ============================================================================
+
+if [[ ! -t 0 ]] && [[ "${NON_INTERACTIVE:-}" != "true" ]]; then
+    NON_INTERACTIVE=true
+    export NON_INTERACTIVE
+fi
 
 # ============================================================================
 # CONFIGURATION
@@ -564,8 +583,27 @@ BASHRC_SNIPPET
         fi
     fi
 
+    # Add ~/.local/bin to PATH (cc-mirror installs mclaude launcher there)
+    local local_bin="${HOME}/.local/bin"
+    if file_contains "${bashrc}" ".local/bin"; then
+        log_info "~/.local/bin already in PATH (found in .bashrc)"
+    else
+        log_info "Adding ~/.local/bin to PATH in .bashrc..."
+        if [[ "${DRY_RUN}" == "false" ]]; then
+            cat >> "${bashrc}" << 'LOCALBIN_SNIPPET'
+
+# local binaries (cc-mirror launchers, pipx, etc.)
+export PATH="$HOME/.local/bin:$PATH"
+LOCALBIN_SNIPPET
+            log_info "Added ~/.local/bin to PATH"
+            INSTALLED_STEPS+=("bashrc-local-bin-path")
+        else
+            log_info "[DRY RUN] Would append ~/.local/bin PATH to .bashrc"
+        fi
+    fi
+
     # Export for current session
-    export PATH="${npm_global}/bin:${PATH}"
+    export PATH="${local_bin}:${npm_global}/bin:${PATH}"
 
     log_success "npm configuration complete"
 }
@@ -627,6 +665,29 @@ install_cc_mirror() {
 # STEP 6: CREATE MCLAUDE VARIANT
 # ============================================================================
 
+# Check for build tools needed by TweakCC (gcc, make, python3).
+# TweakCC patches the native Claude Code binary for cosmetic changes (themes,
+# banner hiding, statusline). These patches require node-lief, which needs
+# native compilation tools.
+#
+# IMPORTANT: node-lief is only needed for NATIVE BINARY installs. cc-mirror
+# uses npm-based installs where node-lief is NOT required. However, TweakCC
+# still attempts to use node-lief for its patching step, so the error message
+# about "node-lief not found" is misleading in the cc-mirror context — the
+# actual issue is missing build tools (gcc, make, python3) that would be
+# needed to compile node-lief if TweakCC tries to install it.
+#
+# Returns: space-separated list of missing tools (empty string if all present)
+check_build_tools() {
+    local missing=()
+    for tool in gcc make python3; do
+        if ! command -v "${tool}" &>/dev/null; then
+            missing+=("${tool}")
+        fi
+    done
+    echo "${missing[*]}"
+}
+
 create_mclaude_variant() {
     log_step 6 "${TOTAL_STEPS}" "Create mclaude Variant"
 
@@ -638,13 +699,39 @@ create_mclaude_variant() {
         return 0
     fi
 
+    # Check for build tools before attempting TweakCC
+    local missing_tools
+    missing_tools=$(check_build_tools)
+    if [[ -n "${missing_tools}" ]]; then
+        log_warn "Missing build tools for TweakCC: ${missing_tools}"
+        log_warn "TweakCC cosmetic patches (themes, banner hiding, statusline) require: gcc, make, python3"
+        log_warn "cc-mirror will attempt installation, but TweakCC patching may be skipped"
+    fi
+
     log_info "Creating mclaude variant (provider: mirror, team mode)..."
     if [[ "${DRY_RUN}" == "false" ]]; then
-        run_cmd cc-mirror quick --provider mirror --name "${CC_MIRROR_VARIANT}" || {
-            log_error "Failed to create mclaude variant"
-            log_error "You can create it manually: cc-mirror quick --provider mirror --name ${CC_MIRROR_VARIANT}"
-            exit 1
-        }
+        # Try with TweakCC first. If it fails, fall back to --no-tweak.
+        # Common failure: TweakCC tries to compile node-lief but build tools
+        # are missing. The node-lief error is misleading — node-lief is only
+        # needed for native binary patching, not for cc-mirror's npm-based
+        # install. The --no-tweak flag skips all cosmetic patches cleanly.
+        if ! cc-mirror quick --provider mirror --name "${CC_MIRROR_VARIANT}" 2>&1; then
+            log_warn "TweakCC patching failed (likely missing build tools)."
+            log_warn "Retrying without TweakCC cosmetic patches..."
+            log_warn "Installing without cosmetic patches — themes, banner hiding,"
+            log_warn "and statusline optimization will not be available."
+            log_warn "Install gcc, make, and python3 for full TweakCC support."
+
+            if ! cc-mirror quick --provider mirror --name "${CC_MIRROR_VARIANT}" --no-tweak 2>&1; then
+                log_error "Failed to create mclaude variant (even without TweakCC)"
+                log_error "You can create it manually: cc-mirror quick --provider mirror --name ${CC_MIRROR_VARIANT} --no-tweak"
+                exit 1
+            fi
+
+            INSTALLED_STEPS+=("mclaude-variant (without TweakCC)")
+        else
+            INSTALLED_STEPS+=("mclaude-variant")
+        fi
 
         # Verify launcher was created
         if [[ ! -f "${HOME}/.local/bin/${CC_MIRROR_VARIANT}" ]]; then
@@ -653,9 +740,9 @@ create_mclaude_variant() {
         fi
 
         log_info "mclaude launcher created at ~/.local/bin/${CC_MIRROR_VARIANT}"
-        INSTALLED_STEPS+=("mclaude-variant")
     else
         log_info "[DRY RUN] Would run: cc-mirror quick --provider mirror --name ${CC_MIRROR_VARIANT}"
+        log_info "[DRY RUN] (with --no-tweak fallback if TweakCC patching fails)"
         INSTALLED_STEPS+=("mclaude-variant (dry-run)")
     fi
 

@@ -44,7 +44,7 @@ fi
 
 # Check 3: Does config repo exist?
 if [ ! -d "$CONFIG_REPO/.git" ]; then
-    WARNINGS="${WARNINGS:+$WARNINGS | }Config repo not found at $CONFIG_REPO. Clone it and run: bash $CONFIG_REPO/sync.sh setup"
+    WARNINGS="${WARNINGS:+$WARNINGS | }Config repo not found at $CONFIG_REPO. Clone it and run: bash $CONFIG_REPO/sync.sh setup. If your repo is at ~/agent-fleet/, check if .template-repo exists and delete it (or run setup/install.sh which removes it automatically), then restart."
 fi
 
 # Check 4: Pull latest config (so inbox is current), and report changed files

@@ -554,6 +554,66 @@ configure_platform_settings() {
 
     local changes_made=false
 
+    # --- Git identity (all platforms) ---
+    local current_name current_email
+    current_name=$(git config --global user.name 2>/dev/null || echo "")
+    current_email=$(git config --global user.email 2>/dev/null || echo "")
+
+    if [[ -z "${current_name}" ]] || [[ -z "${current_email}" ]]; then
+        if [[ "${NON_INTERACTIVE:-false}" == "true" ]]; then
+            # Non-interactive: try to derive from user-profile.md if available
+            local profile_file="${HOME}/.claude/foundation/user-profile.md"
+            local derived_name="" derived_email=""
+            if [[ -f "${profile_file}" ]]; then
+                # Extract name from "**Name** —" pattern
+                derived_name=$(sed -n 's/.*\*\*\([^*]*\)\*\* —.*/\1/p' "${profile_file}" 2>/dev/null | head -1)
+                # Extract first email address
+                derived_email=$(grep -oP '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}' "${profile_file}" 2>/dev/null | head -1)
+            fi
+
+            if [[ -z "${current_name}" ]]; then
+                if [[ -n "${derived_name}" ]]; then
+                    run_cmd git config --global user.name "${derived_name}"
+                    log_info "Git user.name set to '${derived_name}' (from user-profile.md)"
+                else
+                    log_warn "Git user.name is not configured. Set it with: git config --global user.name 'Your Name'"
+                fi
+            fi
+            if [[ -z "${current_email}" ]]; then
+                if [[ -n "${derived_email}" ]]; then
+                    run_cmd git config --global user.email "${derived_email}"
+                    log_info "Git user.email set to '${derived_email}' (from user-profile.md)"
+                else
+                    log_warn "Git user.email is not configured. Set it with: git config --global user.email 'you@example.com'"
+                fi
+            fi
+        else
+            # Interactive: prompt the user
+            if [[ -z "${current_name}" ]]; then
+                local input_name=""
+                read -r -p "Git user.name (your full name): " input_name
+                if [[ -n "${input_name}" ]]; then
+                    run_cmd git config --global user.name "${input_name}"
+                    log_success "Git user.name set to '${input_name}'"
+                else
+                    log_warn "Git user.name skipped — set it later: git config --global user.name 'Your Name'"
+                fi
+            fi
+            if [[ -z "${current_email}" ]]; then
+                local input_email=""
+                read -r -p "Git user.email (your email): " input_email
+                if [[ -n "${input_email}" ]]; then
+                    run_cmd git config --global user.email "${input_email}"
+                    log_success "Git user.email set to '${input_email}'"
+                else
+                    log_warn "Git user.email skipped — set it later: git config --global user.email 'you@example.com'"
+                fi
+            fi
+        fi
+    else
+        log_info "Git identity already configured: ${current_name} <${current_email}>"
+    fi
+
     # --- Git configuration (all platforms) ---
     log_info "Configuring git..."
     run_cmd git config --global core.autocrlf input
